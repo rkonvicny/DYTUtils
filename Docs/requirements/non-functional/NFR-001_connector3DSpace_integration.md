@@ -1,8 +1,8 @@
 ---
 **ID Požadavku:** NFR-001
 **Datum Vytvoření:** 2025-05-10
-**Autor Požadavku:** [KONR]
-**Verze:** 0.1
+**Autor Požadavku:** KONR
+**Verze:** 0.2 (aktualizováno na základě OpenAPI)
 ---
 
 ### Název Nefunkčního Požadavku:
@@ -27,7 +27,7 @@ Integrace s `Connector3DSpace.js`
    - [X] Kritická
 
 **6. Související Funkční Požadavky (pokud existují):**
-   - FP-001, FP-002, FP-003, FP-004 (všechny, které komunikují s 3DX)
+   - FR-001, FR-002, FR-003, FR-004 (všechny, které komunikují s 3DX)
 
 **7. Otevřené Otázky/Poznámky:**
-   - Je `Connector3DSpace.js` plně vybaven pro všechny potřebné operace, nebo bude potřeba jej rozšířit?
+   - Je `Connector3DSpace.js` plně vybaven pro všechny potřebné operace (včetně vícekrokových interakcí s FCS a volání specifických Document API endpointů), nebo bude potřeba jej rozšířit?

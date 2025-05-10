@@ -1,8 +1,8 @@
 ---
 **ID Požadavku:** FR-002
 **Datum Vytvoření:** 2025-05-10
-**Autor Požadavku:** [KONR]
-**Verze:** 0.1
+**Autor Požadavku:** KONR
+**Verze:** 0.2 (aktualizováno na základě OpenAPI)
 ---
 
 ### Název Funkčního Požadavku:
@@ -17,23 +17,32 @@ Nahrání (Upload) JSON souboru jako přílohy k "Document" objektu
 
 **3. Popis Funkcionality:**
    - Utilita poskytne funkci pro nahrání JSON dat jako nového souboru (přílohy) k zadanému "Document" objektu.
-   - *Poznámka: Tento požadavek se může později rozdělit nebo zpřesnit v kontextu operací check-in/check-out.*
    - **Vstupní podmínky/Data:**
-     - Identifikátor "Document" objektu, ke kterému se má soubor přiložit.
+     - Identifikátor "Document" objektu (`docId`), ke kterému se má soubor přiložit.
      - JSON objekt nebo řetězec k uložení.
      - Název pro ukládaný JSON soubor (např. `gridSettings.json`, `lookupTable.json`).
+     - Volitelně komentář k souboru.
    - **Hlavní scénář (Kroky):**
      1. Utilita přijme požadavek na nahrání JSON dat k "Document" objektu.
-     2. Utilita převede JSON objekt na řetězec (pokud je to nutné).
-     3. Utilita použije `Connector3DSpace.js` pro volání příslušného WebAPI 3DEXPERIENCE pro nahrání souboru k "Document" objektu.
-     4. Utilita zpracuje odpověď od 3DEXPERIENCE.
+     2. Utilita (nebo `Connector3DSpace.js`) zavolá `PUT /resources/v1/modeler/documents/{docId}/files/CheckinTicket` pro získání FCS check-in ticketu.
+        - Vstup: `docId`.
+        - Výstup: `ticketURL`, `ticketparamname`, `ticket`.
+     3. Utilita převede JSON objekt na řetězec (např. UTF-8).
+     4. Utilita (nebo `Connector3DSpace.js`) nahraje obsah JSON souboru na FCS server pomocí získaného ticketu (`ticketURL`, `ticketparamname`, `ticket`).
+        - Výstup: FCS `receipt`.
+     5. Utilita sestaví JSON payload pro request body podle schématu `files` (pole s jedním souborem).
+        - Klíčové atributy v `dataelements`: `title` (název souboru), `receipt` (z kroku 4), `comments` (volitelně), `format` (např. "generic" nebo specifický pro JSON, pokud existuje).
+     6. Utilita (nebo `Connector3DSpace.js`) zavolá `POST /resources/v1/modeler/documents/{docId}/files` s připraveným JSON payloadem pro připojení metadat souboru k dokumentu.
+     7. Utilita zpracuje odpověď od 3DEXPERIENCE.
    - **Výstupní podmínky/Data:**
-     - V případě úspěchu: Potvrzení o úspěšném nahrání, případně identifikátor souboru/přílohy.
+     - V případě úspěchu: Potvrzení o úspěšném nahrání, metadata nahraného souboru (včetně jeho `id` - fileId).
      - V případě neúspěchu: Chybová zpráva/kód.
    - **Alternativní scénáře/Chybové stavy:**
      - "Document" objekt neexistuje.
-     - Selhání nahrávání souboru (problém s konektivitou, velikostí souboru, oprávněními).
-     - Soubor s daným názvem již u "Document" objektu existuje (jak řešit? přepsat? verzovat? - *k další specifikaci*).
+     - Selhání získání Check-in ticketu.
+     - Selhání nahrávání na FCS.
+     - Selhání připojení metadat souboru k dokumentu.
+     - Soubor s daným názvem (`title`) již u "Document" objektu existuje. API `POST /resources/v1/modeler/documents/{docId}/files` pravděpodobně vytvoří další soubor se stejným názvem (s jiným fileId). Je třeba zvážit, zda tomu chceme předcházet (např. kontrolou existence souboru se stejným názvem před nahráním a případně použít operaci modifikace - viz FR-004).
 
 **4. Kritéria Přijetí (Acceptance Criteria):**
    - Po zavolání funkce je JSON soubor úspěšně nahrán jako příloha k zadanému "Document" objektu v 3DEXPERIENCE.
@@ -53,6 +62,7 @@ Nahrání (Upload) JSON souboru jako přílohy k "Document" objektu
    - `Connector3DSpace.js` je funkční.
 
 **8. Otevřené Otázky/Poznámky:**
-   - Jaké konkrétní WebAPI metody (přes `Connector3DSpace.js`) budou použity pro operace se soubory (upload, check-in, check-out, download)? Toto bude specifikováno později.
-   - Jak se bude řešit verzování souborů?
-   - Jaký je maximální povolený rozměr JSON souboru?
+   - [VYŘEŠENO ČÁSTEČNĚ] Jaké konkrétní WebAPI metody budou použity? -> `PUT .../CheckinTicket`, (FCS upload), `POST .../{docId}/files`.
+   - Jak se bude řešit verzování souborů při prvním nahrání? (Pravděpodobně se vytvoří první verze souboru).
+   - Pokud soubor se stejným názvem již existuje, má utilita selhat, přepsat (pokud to API umožňuje přímo), nebo vytvořit nový soubor se stejným názvem? (Standardní `POST .../{docId}/files` pravděpodobně přidá nový soubor).
+   - Jaký `format` máme použít pro JSON soubory v `files.dataelements.format`? ("generic"?)

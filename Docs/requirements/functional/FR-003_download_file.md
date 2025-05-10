@@ -1,8 +1,8 @@
 ---
 **ID Požadavku:** FR-003
 **Datum Vytvoření:** 2025-05-10
-**Autor Požadavku:** [KONR]
-**Verze:** 0.1
+**Autor Požadavku:** KONR
+**Verze:** 0.2 (aktualizováno na základě OpenAPI)
 ---
 
 ### Název Funkčního Požadavku:
@@ -18,20 +18,29 @@ Stažení (Download) JSON souboru z přílohy "Document" objektu
 **3. Popis Funkcionality:**
    - Utilita poskytne funkci pro stažení obsahu JSON souboru, který je přílohou k zadanému "Document" objektu.
    - **Vstupní podmínky/Data:**
-     - Identifikátor "Document" objektu.
-     - Název JSON souboru, který má být stažen.
+     - Identifikátor "Document" objektu (`docId`).
+     - Název JSON souboru (`fileName`), který má být stažen.
+     - Volitelně identifikátor verze souboru (`versionId`), pokud se má stáhnout specifická verze.
    - **Hlavní scénář (Kroky):**
      1. Utilita přijme požadavek na stažení JSON souboru.
-     2. Utilita použije `Connector3DSpace.js` pro volání příslušného WebAPI 3DEXPERIENCE pro stažení souboru.
-     3. Utilita zpracuje odpověď (obsah souboru).
-     4. Utilita převede stažený obsah na JSON objekt (pokud je to žádoucí).
+     2. Utilita (nebo `Connector3DSpace.js`) nejprve potřebuje získat `fileId` pro daný `fileName` a `docId`. Toho lze dosáhnout voláním `GET /resources/v1/modeler/documents/{docId}/files` (nebo `GET /resources/v1/modeler/documents/{docId}?$include=files`) a prohledáním výsledků.
+     3. Pokud je specifikován `versionId`:
+        Utilita (nebo `Connector3DSpace.js`) zavolá `PUT /resources/v1/modeler/documents/{docId}/files/{fileId}/versions/{versionId}/DownloadTicket`.
+     4. Pokud `versionId` není specifikován (stahuje se nejnovější verze):
+        Utilita (nebo `Connector3DSpace.js`) zavolá `PUT /resources/v1/modeler/documents/{docId}/files/{fileId}/DownloadTicket`.
+        - Vstup: `docId`, `fileId`.
+        - Výstup: `ticketURL`, `fileName` (z FCS).
+     5. Utilita (nebo `Connector3DSpace.js`) stáhne obsah souboru z FCS serveru pomocí získaného `ticketURL`.
+     6. Utilita zpracuje stažený obsah (očekává se text).
+     7. Utilita převede stažený textový obsah na JSON objekt.
    - **Výstupní podmínky/Data:**
      - V případě úspěchu: JSON objekt nebo řetězec reprezentující obsah souboru.
      - V případě neúspěchu: Chybová zpráva/kód, nebo např. `null`/`undefined`.
    - **Alternativní scénáře/Chybové stavy:**
      - "Document" objekt neexistuje.
-     - Soubor s daným názvem u "Document" objektu neexistuje.
+     - Soubor s daným názvem u "Document" objektu neexistuje (nebyl nalezen `fileId`).
      - Selhání stahování souboru.
+     - Selhání získání Download ticketu.
      - Stažený soubor není validní JSON (jak řešit?).
 
 **4. Kritéria Přijetí (Acceptance Criteria):**
@@ -51,4 +60,6 @@ Stažení (Download) JSON souboru z přílohy "Document" objektu
    - `Connector3DSpace.js` je funkční.
 
 **8. Otevřené Otázky/Poznámky:**
-   - Jak se bude specifikovat verze souboru ke stažení, pokud bude podporováno verzování?
+   - [VYŘEŠENO] Jak se bude specifikovat verze souboru ke stažení, pokud bude podporováno verzování? -> Pomocí `versionId` a endpointu `.../versions/{versionId}/DownloadTicket`.
+   - Jak utilita získá `fileId` na základě `fileName`? (Pravděpodobně interním voláním `GET .../{docId}/files`). Měla by utilita cachovat toto mapování?
+   - Co se stane, pokud existuje více souborů se stejným `fileName` pod jedním `docId`? Který `fileId` se vybere? (Měl by se brát první nalezený, nebo by to měla být chyba?)

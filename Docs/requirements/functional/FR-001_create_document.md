@@ -1,8 +1,8 @@
 ---
 **ID Požadavku:** FR-001
 **Datum Vytvoření:** 2025-05-10
-**Autor Požadavku:** [KONR]
-**Verze:** 0.1
+**Autor Požadavku:** KONR
+**Verze:** 0.2 (aktualizováno na základě OpenAPI)
 ---
 
 ### Název Funkčního Požadavku:
@@ -18,14 +18,17 @@ Vytvoření nového 3DEXPERIENCE "Document" objektu pro ukládání JSON dat
 **3. Popis Funkcionality:**
    - Utilita poskytne funkci pro vytvoření nového objektu typu "Document" v prostředí 3DEXPERIENCE.
    - **Vstupní podmínky/Data:**
-     - Název pro nový "Document" objekt (povinné).
-     - Volitelně další metadata pro "Document" (např. popis) - *k další specifikaci, pokud je relevantní*.
+     - Název pro nový "Document" objekt (povinné, mapuje se na `dataelements.name` nebo `dataelements.title` v API).
+     - Volitelně další metadata pro "Document" (např. `description`, `policy`, `collabspace`).
    - **Hlavní scénář (Kroky):**
-     1. Utilita přijme požadavek na vytvoření nového "Document" objektu s definovanými parametry.
-     2. Utilita použije `Connector3DSpace.js` pro volání příslušného WebAPI 3DEXPERIENCE pro vytvoření "Document" objektu.
-     3. Utilita zpracuje odpověď od 3DEXPERIENCE.
+     1. Utilita přijme požadavek na vytvoření nového "Document" objektu s definovanými parametry (název, popis atd.).
+     2. Utilita sestaví JSON payload pro request body podle schématu `documents` (definovaného v OpenAPI).
+        - Klíčové atributy budou v `dataelements` (např. `title`, `description`).
+        - Pro základní vytvoření prázdného dokumentu nebudou zahrnuty `receipt` ani `relateddata.files`.
+     3. Utilita použije `Connector3DSpace.js` pro volání `POST /resources/v1/modeler/documents` s připraveným JSON payloadem.
+     4. Utilita zpracuje odpověď od 3DEXPERIENCE.
    - **Výstupní podmínky/Data:**
-     - V případě úspěchu: Identifikátor (např. physical ID) nově vytvořeného "Document" objektu.
+     - V případě úspěchu: Identifikátor (`id`) nově vytvořeného "Document" objektu a případně další vrácená metadata.
      - V případě neúspěchu: Chybová zpráva/kód.
    - **Alternativní scénáře/Chybové stavy:**
      - Selhání komunikace s 3DEXPERIENCE.
@@ -49,6 +52,6 @@ Vytvoření nového 3DEXPERIENCE "Document" objektu pro ukládání JSON dat
    - `Connector3DSpace.js` je správně inicializován a funkční.
 
 **8. Otevřené Otázky/Poznámky:**
-   - Jaká konkrétní WebAPI metoda (přes `Connector3DSpace.js`) bude použita pro vytvoření "Document" objektu?
-   - Jsou potřeba nějaká defaultní metadata pro nově vytvářené "Document" objekty?
-   - Jak se bude řešit případ, kdy "Document" s daným názvem již existuje (pokud je název myšlen jako unikátní identifikátor v nějakém kontextu)?
+   - [VYŘEŠENO] Jaká konkrétní WebAPI metoda (přes `Connector3DSpace.js`) bude použita pro vytvoření "Document" objektu? -> `POST /resources/v1/modeler/documents`
+   - Jaké povinné a volitelné atributy z `documents` schématu budeme podporovat při vytváření (např. `policy`, `collabspace`)?
+   - Jak se bude řešit případ, kdy "Document" s daným názvem (`dataelements.title` nebo `dataelements.name`) již existuje v daném kontextu (pokud je název myšlen jako unikátní)? API samo o sobě toto nemusí kontrolovat, záleží na konfiguraci ENOVIA.
