@@ -2,18 +2,18 @@
 **ID Požadavku:** FR-003
 **Datum Vytvoření:** 2025-05-10
 **Autor Požadavku:** KONR
-**Verze:** 0.2 (aktualizováno na základě OpenAPI)
+**Verze:** 0.3 (aktualizace aktéra)
 ---
 
 ### Název Funkčního Požadavku:
 Stažení (Download) JSON souboru z přílohy "Document" objektu
 
 **1. Popis Aktéra/Uživatele:**
-   - Vývojář widgetu (prostřednictvím volání API utility)
-   - Utilita samotná
+   - Widget (který volá funkce této utility)
+   - Utilita samotná (pokud provádí interní volání svých vlastních funkcí jako součást komplexnější operace)
 
 **2. Cíl/Potřeba Aktéra:**
-   - Načíst dříve uložená JSON data (např. nastavení, datovou tabulku) z přílohy "Document" objektu v 3DEXPERIENCE pro použití v aplikaci/widgetu.
+   - Widget potřebuje načíst dříve uložená JSON data (např. nastavení, datovou tabulku) z přílohy "Document" objektu v 3DEXPERIENCE pro použití ve své logice.
 
 **3. Popis Funkcionality:**
    - Utilita poskytne funkci pro stažení obsahu JSON souboru, který je přílohou k zadanému "Document" objektu.
@@ -22,7 +22,7 @@ Stažení (Download) JSON souboru z přílohy "Document" objektu
      - Název JSON souboru (`fileName`), který má být stažen.
      - Volitelně identifikátor verze souboru (`versionId`), pokud se má stáhnout specifická verze.
    - **Hlavní scénář (Kroky):**
-     1. Utilita přijme požadavek na stažení JSON souboru.
+     1. Utilita přijme požadavek od Widgetu na stažení JSON souboru.
      2. Utilita (nebo `Connector3DSpace.js`) nejprve potřebuje získat `fileId` pro daný `fileName` a `docId`. Toho lze dosáhnout voláním `GET /resources/v1/modeler/documents/{docId}/files` (nebo `GET /resources/v1/modeler/documents/{docId}?$include=files`) a prohledáním výsledků.
      3. Pokud je specifikován `versionId`:
         Utilita (nebo `Connector3DSpace.js`) zavolá `PUT /resources/v1/modeler/documents/{docId}/files/{fileId}/versions/{versionId}/DownloadTicket`.
@@ -44,9 +44,9 @@ Stažení (Download) JSON souboru z přílohy "Document" objektu
      - Stažený soubor není validní JSON (jak řešit?).
 
 **4. Kritéria Přijetí (Acceptance Criteria):**
-   - Po zavolání funkce je obsah zadaného JSON souboru z "Document" objektu úspěšně načten.
+   - Po zavolání funkce Widgetem je obsah zadaného JSON souboru z "Document" objektu úspěšně načten.
    - Vrácená data (JSON objekt/řetězec) odpovídají obsahu souboru v 3DEXPERIENCE.
-   - V případě chyby (např. soubor neexistuje) je vrácena adekvátní informace.
+   - V případě chyby (např. soubor neexistuje) je Widgetu vrácena adekvátní informace.
 
 **5. Priorita:**
    - [X] Musí být (Critical/Must-have)
@@ -56,7 +56,7 @@ Stažení (Download) JSON souboru z přílohy "Document" objektu
    - WebAPI 3DEXPERIENCE pro stahování souborových příloh.
 
 **7. Předpoklady:**
-   - Uživatel (widget) je autentizován.
+   - Widget (resp. uživatel, v jehož kontextu Widget běží) je autentizován.
    - `Connector3DSpace.js` je funkční.
 
 **8. Otevřené Otázky/Poznámky:**

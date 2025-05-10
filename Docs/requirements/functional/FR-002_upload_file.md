@@ -2,18 +2,18 @@
 **ID Požadavku:** FR-002
 **Datum Vytvoření:** 2025-05-10
 **Autor Požadavku:** KONR
-**Verze:** 0.2 (aktualizováno na základě OpenAPI)
+**Verze:** 0.3 (aktualizace aktéra)
 ---
 
 ### Název Funkčního Požadavku:
 Nahrání (Upload) JSON souboru jako přílohy k "Document" objektu
 
 **1. Popis Aktéra/Uživatele:**
-   - Vývojář widgetu (prostřednictvím volání API utility)
-   - Utilita samotná
+   - Widget (který volá funkce této utility)
+   - Utilita samotná (pokud provádí interní volání svých vlastních funkcí jako součást komplexnější operace)
 
 **2. Cíl/Potřeba Aktéra:**
-   - Uložit JSON data (např. nastavení KendoUI komponenty, malá datová tabulka) do 3DEXPERIENCE jako soubor připojený k existujícímu "Document" objektu.
+   - Widget potřebuje uložit JSON data (např. nastavení KendoUI komponenty, malá datová tabulka) do 3DEXPERIENCE jako soubor připojený k existujícímu "Document" objektu.
 
 **3. Popis Funkcionality:**
    - Utilita poskytne funkci pro nahrání JSON dat jako nového souboru (přílohy) k zadanému "Document" objektu.
@@ -23,7 +23,7 @@ Nahrání (Upload) JSON souboru jako přílohy k "Document" objektu
      - Název pro ukládaný JSON soubor (např. `gridSettings.json`, `lookupTable.json`).
      - Volitelně komentář k souboru.
    - **Hlavní scénář (Kroky):**
-     1. Utilita přijme požadavek na nahrání JSON dat k "Document" objektu.
+     1. Utilita přijme požadavek od Widgetu na nahrání JSON dat k "Document" objektu.
      2. Utilita (nebo `Connector3DSpace.js`) zavolá `PUT /resources/v1/modeler/documents/{docId}/files/CheckinTicket` pro získání FCS check-in ticketu.
         - Vstup: `docId`.
         - Výstup: `ticketURL`, `ticketparamname`, `ticket`.
@@ -45,9 +45,9 @@ Nahrání (Upload) JSON souboru jako přílohy k "Document" objektu
      - Soubor s daným názvem (`title`) již u "Document" objektu existuje. API `POST /resources/v1/modeler/documents/{docId}/files` pravděpodobně vytvoří další soubor se stejným názvem (s jiným fileId). Je třeba zvážit, zda tomu chceme předcházet (např. kontrolou existence souboru se stejným názvem před nahráním a případně použít operaci modifikace - viz FR-004).
 
 **4. Kritéria Přijetí (Acceptance Criteria):**
-   - Po zavolání funkce je JSON soubor úspěšně nahrán jako příloha k zadanému "Document" objektu v 3DEXPERIENCE.
+   - Po zavolání funkce Widgetem je JSON soubor úspěšně nahrán jako příloha k zadanému "Document" objektu v 3DEXPERIENCE.
    - Obsah nahraného souboru v 3DEXPERIENCE odpovídá původním JSON datům.
-   - V případě chyby je vrácena srozumitelná chybová informace.
+   - V případě chyby je Widgetu vrácena srozumitelná chybová informace.
 
 **5. Priorita:**
    - [X] Musí být (Critical/Must-have)
@@ -58,7 +58,7 @@ Nahrání (Upload) JSON souboru jako přílohy k "Document" objektu
    - Existence "Document" objektu, ke kterému se nahrává.
 
 **7. Předpoklady:**
-   - Uživatel (widget) je autentizován.
+   - Widget (resp. uživatel, v jehož kontextu Widget běží) je autentizován.
    - `Connector3DSpace.js` je funkční.
 
 **8. Otevřené Otázky/Poznámky:**
