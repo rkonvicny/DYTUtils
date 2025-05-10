@@ -2,7 +2,7 @@
 **ID Požadavku:** NFR-001
 **Datum Vytvoření:** 2025-05-10
 **Autor Požadavku:** KONR
-**Verze:** 0.4 (přidán odkaz na FR-007)
+**Verze:** 0.6 (aktualizace odkazu na FR-005)
 ---
 
 ### Název Nefunkčního Požadavku:

@@ -2,7 +2,7 @@
 **ID Požadavku:** NFR-003
 **Datum Vytvoření:** 2025-05-10
 **Autor Požadavku:** KONR
-**Verze:** 0.2 (aktualizace odkazů na FR)
+**Verze:** 0.3 
 ---
 
 ### Název Nefunkčního Požadavku:
@@ -26,7 +26,7 @@ Práce s JSON daty
    - [X] Kritická
 
 **6. Související Funkční Požadavky (pokud existují):**
-   - FR-002, FR-003, FR-005
+   - FR-002, FR-003
 
 **7. Otevřené Otázky/Poznámky:**
    - Bude potřeba řešit nějaké specifické kódování znaků pro JSON? (Obvykle UTF-8, což by mělo být v pořádku).
