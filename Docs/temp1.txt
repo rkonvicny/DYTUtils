@@ -1,0 +1,263 @@
+---
+**Název Dokumentu:** Návrh systému - Utilita pro práci s dokumenty (DYTUtils - Document Extension)
+**Datum Vytvoření:** 2025-05-10
+**Autor:** KONR
+**Verze:** 0.5 (Refaktorované API na vysokoúrovňové funkce, zmínka o pomocné utilitě)
+---
+<div style="text-align:center; page-break-after:always;">
+
+# Návrh systému
+
+## Utilita pro práci s dokumenty
+### (DYTUtils - Document Extension)
+
+<br>
+<br>
+<br>
+
+**Verze:** 0.5
+
+**Datum:** 2025-05-10
+
+**Autor:** KONR
+
+</div>
+
+---
+## Obsah
+
+-   [1. Úvod](#1-úvod)
+    -   [1.1. Účel dokumentu](#11-účel-dokumentu)
+    -   [1.2. Rozsah systému (této utility)](#12-rozsah-systému-této-utility)
+    -   [1.3. Cíloví uživatelé systému](#13-cíloví-uživatelé-systému)
+    -   [1.4. Odkazy](#14-odkazy)
+-   [2. Celková architektura](#2-celková-architektura)
+    -   [2.1. Přehled architektury](#21-přehled-architektury)
+    -   [2.2. Klíčové komponenty](#22-klíčové-komponenty)
+    -   [2.3. Vztah k pomocné utilitě DocumentWebServiceHelper](#23-vztah-k-pomocné-utilitě-documentwebservicehelper)
+-   [3. Návrh rozhraní (API Utility)](#3-návrh-rozhraní-api-utility)
+-   [4. Návrh datových struktur (Příklady)](#4-návrh-datových-struktur-příklady)
+    -   [4.1. DocumentInfo (Příklad objektu)](#41-documentinfo-příklad-objektu)
+    -   [4.2. FileInfo (Příklad objektu pro metadata souboru)](#42-fileinfo-příklad-objektu-pro-metadata-souboru)
+    -   [4.3. DownloadedJson (Příklad objektu pro výstup z `loadJsonFromDocument`)](#43-downloadedjson-příklad-objektu-pro-výstup-z-loadjsonfromdocument)
+-   5. Popis klíčových scénářů
+    -   5.1. Scénář: Načtení JSON dat z dokumentu
+    -   5.2. Scénář: Uložení JSON dat do dokumentu
+-   6. Zpracování chyb
+-   7. Nefunkční požadavky (pro tuto utilitu)
+-   8. Otevřené otázky návrhu (TODO)
+
+---
+## 1. Úvod
+
+### 1.1. Účel dokumentu
+Tento dokument popisuje návrh systému pro utilitu (dále jen "Utilita"), která rozšiřuje stávající `DYTUtils` o funkce pro práci s objekty typu "Document" a jejich souborovými přílohami (primárně JSON soubory) v prostředí 3DEXPERIENCE. Cílem je poskytnout widgetům jednoduché a robustní API pro běžné operace s dokumenty a soubory.
+
+Tato utilita se zaměřuje na vysokoúrovňové operace čtení a zápisu JSON dat. Pro nízkoúrovňovější operace s dokumenty bude existovat samostatná pomocná utilita (viz sekce 2.3).
+
+### 1.2. Rozsah systému (této utility)
+Systém zahrnuje:
+-   API vrstvu Utility, která bude volána Widgety.
+-   Interní logiku Utility pro orchestraci volání na 3DEXPERIENCE platformu (primárně skrze pomocnou utilitu a `Connector3DSpace.js`).
+-   Interakci s existující komponentou `Connector3DSpace.js` pro veškerou komunikaci s 3DEXPERIENCE.
+-   Interakci s Document Web Services a File Collaboration Server (FCS) platformy 3DEXPERIENCE (nepřímo, skrze pomocnou utilitu).
+
+### 1.3. Cíloví uživatelé systému
+Primárním aktérem (uživatelem API Utility) je **Widget**.
+
+### 1.4. Odkazy
+-   Funkční požadavky: `\\3dexpprod\webapps\DYTUtils\webapps\DYTUtils\Docs\requirements\functional\`
+-   Nefunkční požadavky: `\\3dexpprod\webapps\DYTUtils\webapps\DYTUtils\Docs\requirements\non-functional\`
+-   OpenAPI specifikace Document Web Services (poskytnuto dříve)
+
+## 2. Celková architektura
+
+### 2.1. Přehled architektury
+Utilita bude navržena jako JavaScriptový modul (dle NFR-002[^9], implementace jako RequireJS modul), který bude poskytovat sadu vysokoúrovňových funkcí pro Widgety. Veškerá komunikace s platformou 3DEXPERIENCE bude zapouzdřena a bude probíhat výhradně přes existující modul `Connector3DSpace.js` (dle NFR-001[^8]), přičemž tato utilita bude pro většinu operací využívat pomocnou utilitu `DYTUtils - DocumentWebServiceHelper`.
+
+Utilita bude interně implementovat vícekrokové procesy vyžadované Document Web Services, jako je získávání ticketů pro FCS, nahrávání/stahování souborů na/z FCS a následné potvrzování operací vůči Document objektům, a to delegováním těchto úkolů na `DYTUtils - DocumentWebServiceHelper`.
+
+**Základní tok interakce komponent:**
+```plantuml
+@startuml
+actor Widget
+participant "DYTUtils (Doc Extension)" as Utilita
+participant "DYTUtils - DocumentWebServiceHelper" as HelperUtilita
+participant "Connector3DSpace.js" as Connector
+database "3DEXPERIENCE\n(Document WS, FCS)" as Platforma3DX
+
+Widget --> Utilita : Volání API funkce (např. `saveJsonToDocument`)
+Utilita --> HelperUtilita : Volání pomocných funkcí (např. `ensureDocumentExists`, `lockDocument`, `uploadFile`)
+HelperUtilita --> Connector : Volání pro 3DX operaci
+Connector --> Platforma3DX : HTTP požadavek
+Platforma3DX --> Connector : HTTP odpověď
+Connector --> HelperUtilita : Výsledek operace
+HelperUtilita --> Utilita : Výsledek pomocné operace
+Utilita --> Widget : Výsledek / Chyba
+@enduml
+```
+### 2.2. Klíčové komponenty
+1.  **DYTUtils - Document Extension (Nová Utilita):**
+    *   Poskytuje veřejné API pro Widgety.
+    *   Obsahuje logiku pro zpracování požadavků od Widgetů.
+    *   Orchestruje volání na `Connector3DSpace.js`.
+    *   Zpracovává odpovědi a chyby z `Connector3DSpace.js`.
+    *   Implementuje logiku pro vícekrokové operace s FCS.
+
+2.  **Connector3DSpace.js (Existující komponenta):**
+    *   Zajišťuje nízkoúrovňovou komunikaci s 3DEXPERIENCE WebAPI.
+    *   Zpracovává autentizaci, CSRF tokeny, formátování požadavků a odpovědí.
+    *   Bude využíván Novou Utilitou pro všechna volání na Document Web Services a FCS.
+
+3.  **3DEXPERIENCE Platforma:**
+    *   **Document Web Services:** Poskytují REST API pro CRUD operace s "Document" objekty a jejich metadaty, včetně získávání ticketů pro FCS.
+    *   **File Collaboration Server (FCS):** Zajišťuje fyzické ukládání a stahování souborů.
+
+### 2.3. Vztah k pomocné utilitě DocumentWebServiceHelper
+Pro zajištění čistého API této utility (`DYTUtils - Document Extension`) a zároveň pro poskytnutí granulárnějších operací pro pokročilé použití bude vytvořena samostatná utilita v rámci projektu `DYTUtils`, nazvaná například `DYTUtils - DocumentWebServiceHelper`.
+
+Tato `DocumentWebServiceHelper` utilita bude obsahovat funkce, které přímo mapují na jednotlivé kroky interakce s Document Web Services (např. vytvoření dokumentu, zamčení/odemčení, smazání souboru, vyhledání dokumentu, nahrání/stažení souboru na/z FCS). Bude zodpovědná za implementaci jednotlivých funkčních požadavků (`[^FR-001]` až `[^FR-007]`).
+
+`DYTUtils - Document Extension` bude interně využívat `DocumentWebServiceHelper` k provedení potřebných kroků.
+## 3. Návrh rozhraní (API Utility)
+
+Tato utilita bude poskytovat následující dvě klíčové vysokoúrovňové funkce:
+
+*   `loadJsonFromDocument(documentTitle: string, fileName: string, versionId?: string): Promise<DownloadedJson | null>`
+    *   **Účel:** Načte a deserializuje JSON obsah ze zadaného souboru v dokumentu identifikovaném jeho názvem.
+    *   **Vstup:**
+        *   `documentTitle`: Název 3DEXPERIENCE "Document" objektu.
+        *   `fileName`: Název souboru (např. "data.json") v rámci dokumentu.
+        *   `versionId` (volitelný): ID konkrétní verze souboru/dokumentu ke stažení. Pokud není uvedeno, stáhne se nejnovější.
+    *   **Výstup:** Promise, která resolvuje na objekt `DownloadedJson` (viz 4.3) obsahující deserializovaná JSON data, nebo `null`, pokud dokument či soubor neexistuje nebo soubor neobsahuje validní JSON. V případě chyby bude Promise rejectována.
+    *   **Interní kroky (koncepčně, s využitím `DocumentWebServiceHelper`):**
+        1.  Zajištění existence dokumentu podle `documentTitle` a získání jeho `docId` (využitím funkcí implementujících `[^FR-001]`, `[^FR-007]` z `DocumentWebServiceHelper`).
+        2.  Stažení obsahu souboru `fileName` z dokumentu s `docId` (využitím funkce implementující `[^FR-003]` z `DocumentWebServiceHelper`).
+        3.  Deserializace obsahu jako JSON.
+
+*   `saveJsonToDocument(documentTitle: string, fileName: string, jsonData: object | string, comment?: string): Promise<FileInfo>`
+    *   **Účel:** Serializuje a uloží daný JSON objekt jako soubor do dokumentu identifikovaného jeho názvem. Pokud soubor již existuje, bude přepsán.
+    *   **Vstup:**
+        *   `documentTitle`: Název 3DEXPERIENCE "Document" objektu.
+        *   `fileName`: Název souboru (např. "config.json"), pod kterým budou data uložena.
+        *   `jsonData`: JavaScriptový objekt nebo řetězec JSON, který má být uložen.
+        *   `comment` (volitelný): Komentář k operaci nahrání souboru.
+    *   **Výstup:** Promise, která resolvuje na objekt `FileInfo` (viz 4.2) popisující nově nahraný soubor. V případě chyby bude Promise rejectována.
+    *   **Interní kroky (koncepčně, s využitím `DocumentWebServiceHelper`):**
+        1.  Zajištění existence dokumentu podle `documentTitle` a získání jeho `docId` (využitím funkcí implementujících `[^FR-001]`, `[^FR-007]` z `DocumentWebServiceHelper`).
+        2.  Zamčení dokumentu (využitím funkce implementující `[^FR-004]` z `DocumentWebServiceHelper`).
+        3.  Smazání existujícího souboru se stejným `fileName` (pokud existuje) (využitím funkce implementující `[^FR-005]` z `DocumentWebServiceHelper`).
+        4.  Serializace `jsonData` na řetězec (pokud je to objekt).
+        5.  Nahrání nového souboru s obsahem JSON (využitím funkce implementující `[^FR-002]` z `DocumentWebServiceHelper`).
+        6.  Odemčení dokumentu (využitím funkce implementující `[^FR-006]` z `DocumentWebServiceHelper`).
+
+*Poznámka: Detailní signatury funkcí, návratové typy a chybové stavy budou dále specifikovány.*
+
+## 4. Návrh datových struktur (Příklady)
+
+Tyto datové struktury jsou příklady objektů, které mohou být vráceny z API nebo interně použity.
+
+### 4.1. DocumentInfo (Příklad objektu)
+```javascript
+// Příklad objektu, který by mohl být vrácen pomocnou utilitou DocumentWebServiceHelper
+// a interně použit touto utilitou.
+{
+  id: "string", // ID dokumentu
+  type: "Document", // Typ objektu
+  dataelements: {
+    title: "string", // Titulek dokumentu
+    name: "string" // Technický název (může být autonamed)
+    // ... další relevantní metadata vrácená API
+  }
+  // ... další struktury jako cestamp, relateddata (pokud relevantní pro výstup)
+}
+```
+### 4.2. FileInfo (Příklad objektu pro metadata souboru)
+// Příklad objektu, který by mohl být vrácen funkcí `saveJsonToDocument`
+{
+  id: "string", // fileId
+  type: "DOCUMENTS", // Typ souborového objektu
+  dataelements: {
+    title: "string", // fileName
+    format: "application/json", // Formát souboru
+    // ... další relevantní metadata jako fileSize, modified, comments
+  }
+  // ... další struktury
+}
+```
+### 4.3. DownloadedJson (Příklad objektu pro výstup z loadJsonFromDocument)
+// Příklad objektu, který by mohl být vrácen funkcí `loadJsonFromDocument`
+{
+  content: { /* ... deserializovaný JSON obsah ... */ },
+  fileInfo: { // Metadata o souboru, ze kterého bylo čteno (struktura viz FileInfo 4.2)
+    id: "string",
+    title: "string",
+    // ...
+  },
+  documentInfo: { // Metadata o dokumentu, ze kterého bylo čteno (struktura viz DocumentInfo 4.1)
+    id: "string",
+    title: "string",
+    // ...
+  }
+}
+```
+## 5. Popis klíčových scénářů
+
+### 5.1. Scénář: Načtení JSON dat z dokumentu
+
+1.  **Widget** volá `Utilita.loadJsonFromDocument("MujDokument", "konfigurace.json")`.
+2.  **Utilita (`DYTUtils - Document Extension`)**:
+    1.  Volá `DocumentWebServiceHelper.ensureDocumentExists("MujDokument")` (implementuje `[^FR-001]`, `[^FR-007]`).
+    2.  `DocumentWebServiceHelper` vrací `docId` a `DocumentInfo`.
+    3.  Pokud dokument neexistuje, Utilita vrací `null` nebo chybu.
+    4.  Volá `DocumentWebServiceHelper.downloadFileContentByName(docId, "konfigurace.json")` (implementuje `[^FR-003]`).
+    5.  `DocumentWebServiceHelper` vrací obsah souboru jako string a `FileInfo`.
+    6.  Utilita parsuje string jako JSON. Pokud selže, vrací `null` nebo chybu.
+    7.  Utilita sestaví objekt `DownloadedJson` a vrací jej Widgetu.
+
+### 5.2. Scénář: Uložení JSON dat do dokumentu
+
+1.  **Widget** volá `Utilita.saveJsonToDocument("MujDokument", "novaKonfigurace.json", { key: "value" }, "Aktualizace konfigurace")`.
+2.  **Utilita (`DYTUtils - Document Extension`)**:
+    1.  Volá `DocumentWebServiceHelper.ensureDocumentExists("MujDokument")` (implementuje `[^FR-001]`, `[^FR-007]`).
+    2.  `DocumentWebServiceHelper` vrací `docId`.
+    3.  Volá `DocumentWebServiceHelper.lockDocument(docId, "Aktualizace konfigurace")` (implementuje `[^FR-004]`).
+    4.  Volá `DocumentWebServiceHelper.deleteFileByNameFromDocument(docId, "novaKonfigurace.json")` (implementuje `[^FR-005]`). (Tento krok je pro zajištění nahrazení).
+    5.  Serializuje `{ key: "value" }` na JSON string.
+    6.  Volá `DocumentWebServiceHelper.uploadFileToDocument(docId, "novaKonfigurace.json", jsonString, "application/json", "Aktualizace konfigurace")` (implementuje `[^FR-002]`).
+    7.  `DocumentWebServiceHelper` vrací `FileInfo` nahraného souboru.
+    8.  Volá `DocumentWebServiceHelper.unlockDocument(docId)` (implementuje `[^FR-006]`).
+    9.  Utilita vrací `FileInfo` Widgetu.
+    10. V případě chyby v kterémkoli kroku (např. při zamčení, nahrání) se pokusí odemknout dokument a vrátí chybu Widgetu.
+
+## 6. Zpracování chyb
+-   Utilita bude zachytávat chyby z `DocumentWebServiceHelper` a `Connector3DSpace.js`.
+-   Chyby budou transformovány do srozumitelné podoby pro Widget (např. standardizované chybové objekty nebo Promise rejections s chybovými zprávami).
+-   V případě vícekrokových operací, pokud dojde k chybě uprostřed procesu, utilita (a `DocumentWebServiceHelper`) se pokusí uvést systém do konzistentního stavu (např. odemknout dokument, pokud byl zamčen).
+
+## 7. Nefunkční požadavky (pro tuto utilitu)
+Budou dodrženy všechny definované nefunkční požadavky, zejména:
+-   **NFR-001:** Veškerá komunikace přes `Connector3DSpace.js`[^8] (Primárně skrze `DocumentWebServiceHelper`).
+-   **NFR-002:** Implementace jako RequireJS modul[^9].
+-   **NFR-003:** Práce s JSON daty[^10].
+
+## 8. Otevřené otázky návrhu (TODO)
+-   Detailní návrh chybových objektů/kódů pro tuto utilitu.
+-   Přesné signatury API funkcí Utility (včetně detailů Promise<T>).
+-   Návrh API a implementace pomocné utility `DYTUtils - DocumentWebServiceHelper`.
+-   Jak přesně budou řešeny situace, kdy dokument nebo soubor neexistuje (vracet `null` vs. rejectovat Promise s konkrétní chybou).
+-   Ověření detailů implementace jednotlivých `FR-xxx` v rámci `DocumentWebServiceHelper` (např. podpora `reservedComment` pro `FR-004`, mechanismus odemčení pro `FR-006`).
+
+---
+[^1]: FR-001 - Zajištění existence/Vytvoření nového 3DEXPERIENCE "Document" objektu
+[^2]: FR-002 - Nahrání/Aktualizace JSON souboru do "Document" objektu
+[^3]: FR-003 - Stažení JSON souboru(ů) z "Document" objektu
+[^4]: FR-004 - Zamčení (Rezervace) "Document" objektu pro modifikaci
+[^5]: FR-005 - Smazání souboru z "Document" objektu
+[^6]: FR-006 - Odemčení (Uvolnění rezervace) "Document" objektu
+[^7]: FR-007 - Vyhledání "Document" objektu podle názvu
+[^8]: NFR-001 - Veškerá komunikace přes Connector3DSpace.js
+[^9]: NFR-002 - Implementace jako RequireJS modul
+[^10]: NFR-003 - Práce s JSON daty
+
+
