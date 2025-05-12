@@ -1,0 +1,114 @@
+@startuml RD-002_Save_JSON_Data_vFinal
+!theme vibrant
+left to right direction
+' skinparam linetype polyline
+' skinparam linetype ortho
+actor Widget
+
+package "DYTUtils - Document Extension" {
+  control "Orchestrator\n(Doc Extension)" as DocExtCtrl
+}
+
+package "DYTUtils - DocumentWebServiceHelper" {
+  control "Document Helper" as DocHelperCtrl
+}
+
+package "3DEXPERIENCE" {
+  entity Document
+  entity File
+}
+
+' Input data
+entity jsonData 
+' Output data
+entity FileInfo 
+
+Widget --> DocExtCtrl : 1. saveJsonToDocument(jsonData)\n   (DocExtCtrl serializuje jsonData)
+
+' Step 2: Ensure Document Exists
+DocExtCtrl --> DocHelperCtrl : 2. ensureDocumentExists()
+DocHelperCtrl --> Document : 2.1 (zajistí/vytvoří)
+Document ..> DocHelperCtrl : (vrací DocumentInfo / nebo indikaci chyby)
+note left of DocHelperCtrl
+  Logika v Helperu:
+  Pokud operace selže, vrací chybu (2b).
+  Jinak vrací DocumentInfo (2a).
+end note
+DocHelperCtrl ..> DocExtCtrl : 2a. (vrací DocumentInfo)
+DocHelperCtrl .[#red].> DocExtCtrl : 2b. <color:red>(chyba: Dokument operace selhala)</color>
+' Orchestrator handles error
+DocExtCtrl .[#red].> Widget : <color:red>(reject: Dokument operace selhala)</color> ' Pokud 2b
+
+' Step 3: Lock Document (pokud 2a úspěch)
+DocExtCtrl --> DocHelperCtrl : 3. lockDocument()
+DocHelperCtrl --> Document : 3.1 (zamkne)
+note left of DocHelperCtrl
+  Logika v Helperu:
+  Pokud zamčení selže, vrací chybu (3b).
+  Jinak potvrzuje zamčení (3a).
+end note
+DocHelperCtrl ..> DocExtCtrl : 3a. (potvrzení zamčení)
+DocHelperCtrl .[#red].> DocExtCtrl : 3b. <color:red>(chyba: Zamčení selhalo)</color>
+' Orchestrator handles error
+DocExtCtrl .[#red].> Widget : <color:red>(reject: Zamčení selhalo)</color> ' Pokud 3b
+
+' Step 4: Delete Existing File (pokud 3a úspěch)
+DocExtCtrl --> DocHelperCtrl : 4. deleteFileByNameFromDocument()
+DocHelperCtrl --> File : 4.1 (smaže)
+note left of DocHelperCtrl
+  Logika v Helperu:
+  Pokud smazání selže, vrací chybu (4b).
+  Jinak potvrzuje smazání (4a).
+end note
+DocHelperCtrl ..> DocExtCtrl : 4a. (potvrzení smazání)
+DocHelperCtrl .[#red].> DocExtCtrl : 4b. <color:red>(chyba: Smazání selhalo)</color>
+' Orchestrator handles error
+note right of DocExtCtrl
+  Při chybě 4b (Smazání selhalo),
+  Orchestrator se pokusí odemknout
+  dokument před rejectem Widgetu.
+end note
+DocExtCtrl .[#red].> Widget : <color:red>(reject: Smazání selhalo)</color> ' Pokud 4b
+
+' Step 5: Upload New File (pokud 4a úspěch)
+DocExtCtrl --> DocHelperCtrl : 5. uploadFileToDocument()
+DocHelperCtrl --> File : 5.1 (nahraje)
+File ..> DocHelperCtrl : (vrací FileInfo / nebo indikaci chyby)
+note left of DocHelperCtrl
+  Logika v Helperu:
+  Pokud nahrání selže, vrací chybu (5b).
+  Jinak vrací FileInfo (5a).
+end note
+DocHelperCtrl ..> DocExtCtrl : 5a. (vrací FileInfo)
+DocHelperCtrl .[#red].> DocExtCtrl : 5b. <color:red>(chyba: Nahrání selhalo)</color>
+' Orchestrator handles error
+note right of DocExtCtrl
+  Při chybě 5b (Nahrání selhalo),
+  Orchestrator se pokusí odemknout
+  dokument před rejectem Widgetu.
+end note
+DocExtCtrl .[#red].> Widget : <color:red>(reject: Nahrání selhalo)</color> ' Pokud 5b
+
+' Step 6: Unlock Document (pokud 5a úspěch)
+DocExtCtrl --> DocHelperCtrl : 6. unlockDocument()
+DocHelperCtrl --> Document : 6.1 (odemkne)
+note left of DocHelperCtrl
+  Logika v Helperu:
+  Pokud odemčení selže, vrací chybu (6b).
+  Jinak potvrzuje odemčení (6a).
+end note
+DocHelperCtrl ..> DocExtCtrl : 6a. (potvrzení odemčení)
+DocHelperCtrl .[#red].> DocExtCtrl : 6b. <color:red>(chyba: Odemčení selhalo)</color>
+' Orchestrator handles unlock error
+note right of DocExtCtrl
+  Při chybě 6b (Odemčení selhalo),
+  Orchestrator zaloguje chybu,
+  ale hlavní operace (uložení)
+  byla úspěšná.
+end note
+
+' Step 7: Return FileInfo to Widget (pokud 5a úspěch)
+DocExtCtrl --> FileInfo : 7. (připraví FileInfo z 5a)
+DocExtCtrl ..> Widget : 8. (vrátí FileInfo)
+
+@enduml

@@ -212,10 +212,10 @@ Tyto datové struktury jsou příklady objektů, které mohou být vráceny z AP
 
 1.  **Widget** volá `Utilita.loadJsonFromDocument("MujDokument", "konfigurace.json")`.
 2.  **Utilita (`DYTUtils - Document Extension`)**:
-    1.  Volá `DocumentWebServiceHelper.ensureDocumentExists("MujDokument")` (implementuje `[^FR-001]`, `[^FR-007]`).
-    2.  `DocumentWebServiceHelper` vrací `docId` a `DocumentInfo`.
-    3.  Pokud `ensureDocumentExists` selže (např. dokument nelze vytvořit nebo dojde k chybě při vyhledávání), Utilita rejectuje Promise s příslušnou chybou.
-    4.  Volá `DocumentWebServiceHelper.downloadFileContentByName(docId, "konfigurace.json")` (implementuje `[^FR-003]`).
+ 1.  Volá `DocumentWebServiceHelper.searchDocumentByTitle("MujDokument")` (implementuje `[^FR-007]`).
+    2.  `DocumentWebServiceHelper` vrací pole `DocumentInfo` objektů nebo `null`/prázdné pole.
+    3.  Pokud `searchDocumentByTitle` vrátí `null`, prázdné pole, nebo dojde k chybě, Utilita rejectuje Promise s chybou "Dokument 'MujDokument' nenalezen". Jinak vezme první nalezený dokument a získá jeho `docId` a `DocumentInfo`.
+    4.  Volá `DocumentWebServiceHelper.downloadFileContentByName(docId_z_kroku_3, "konfigurace.json")` (implementuje `[^FR-003]`).
     5.  `DocumentWebServiceHelper` vrací obsah souboru jako string a `FileInfo`.
     6.  Pokud `downloadFileContentByName` vrátí `null` (soubor nenalezen), Utilita rejectuje Promise s chybou "Soubor 'konfigurace.json' v dokumentu 'MujDokument' nenalezen".
     7.  Utilita parsuje string jako JSON. Pokud parsování selže, Utilita rejectuje Promise s chybou "Obsah souboru není validní JSON".
@@ -258,7 +258,10 @@ Budou dodrženy všechny definované nefunkční požadavky, zejména:
     -   Návrh pro `DYTUtils - DocumentWebServiceHelper` je definován v samostatném dokumentu: `\\3dexpprod\webapps\DYTUtils\webapps\DYTUtils\Docs\navrh_document_webservice_helper.md`.
 -   **[ROZHODNUTO] Jak přesně budou řešeny situace, kdy dokument nebo soubor neexistuje:**
     -   Pokud `Connector3DSpace.js` nebo `DocumentWebServiceHelper` indikuje, že dokument/soubor nebyl nalezen (např. vrácením `null` nebo prázdného pole), `DYTUtils - Document Extension` bude rejectovat Promise s konkrétní chybovou zprávou (např. "Dokument nenalezen", "Soubor nenalezen").
--   Ověření detailů implementace jednotlivých `FR-xxx` v rámci `DocumentWebServiceHelper` (např. podpora `reservedComment` pro `FR-004`, mechanismus odemčení pro `FR-006`).
+-   **[ROZHODNUTO] Ověření detailů implementace jednotlivých `FR-xxx` v rámci `DocumentWebServiceHelper`:**
+    -   Pro `FR-004` (zamčení dokumentu) se nepoužívá `reservedComment`.
+    -   `FR-005` (mazání), `FR-006` (odemčení) a `FR-007` (vyhledávání) byly ověřeny a jejich použití v `DYTUtils - Document Extension` (včetně scénáře načítání, který nyní správně používá `searchDocumentByTitle`) je v souladu s návrhem `DocumentWebServiceHelper`.
+
 
 ---
 [^1]: FR-001 - Zajištění existence/Vytvoření nového 3DEXPERIENCE "Document" objektu

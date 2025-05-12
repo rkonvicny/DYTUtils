@@ -1,0 +1,77 @@
+@startuml CD-001_Core_Classes
+!theme vibrant
+title Diagram tříd: DYTUtils - Document Extension & Helper
+
+package "DYTUtils - Document Extension" {
+    ' Orchestrator class for high-level document operations
+    class "DocExtCtrl\n(Orchestrator)" as DocExtCtrl {
+        - _docHelper: DocHelperCtrl
+        + loadJsonFromDocument(documentTitle: string, fileName: string, versionId?: string): Promise<DownloadedJson>
+        + saveJsonToDocument(documentTitle: string, fileName: string, jsonData: object | string): Promise<FileInfo>
+    }
+}
+
+package "DYTUtils - DocumentWebServiceHelper" {
+    class "DocHelperCtrl\n(Helper)" as DocHelperCtrl {
+        - _connector: Connector3DSpace
+        + ensureDocumentExists(documentTitle: string): Promise<DocumentInfo>
+        + searchDocumentByTitle(documentTitle: string): Promise<DocumentInfo[] | null>
+        + lockDocument(docId: string): Promise<void>
+        + unlockDocument(docId: string): Promise<void>
+        + uploadFileToDocument(docId: string, fileName: string, fileContent: string, contentType: string): Promise<FileInfo>
+        + deleteFileByNameFromDocument(docId: string, fileName: string): Promise<void>
+        + downloadFileContentByName(docId: string, fileName: string): Promise<{ content: string, fileInfo: FileInfo
+    }    
+}
+
+package "Data Structures" {
+class DocumentInfo {
+    + id: string
+    + type: string
+    + dataelements: object
+    ..
+    ' další atributy dle potřeby
+}
+class FileInfo {
+    + id: string
+    + type: string
+    + dataelements: object
+    ..
+    ' další atributy dle potřeby
+}
+class DownloadedJson {
+    + content: object
+    + fileInfo: FileInfo
+    + documentInfo: DocumentInfo
+}
+}
+
+package "External Dependencies" {
+class "Connector3DSpace.js" as Connector3DSpace
+}
+
+' "Has-a" relationships (Aggregation)
+DocExtCtrl o--> DocHelperCtrl : "uses (has-a)"
+DocHelperCtrl o--> Connector3DSpace : "uses (has-a)"
+
+DownloadedJson o--> FileInfo : "contains (has-a)"
+DownloadedJson o--> DocumentInfo : "contains (has-a)"
+
+
+' Dependencies (e.g., return types, parameters)
+DocExtCtrl ..> DownloadedJson : "returns / uses type"
+DocExtCtrl ..> FileInfo : "returns / uses type"
+
+DocHelperCtrl ..> DocumentInfo : "returns / uses type"
+DocHelperCtrl ..> FileInfo : "returns / uses type"
+
+
+' Conceptual entities (not classes in our system, but what Helper interacts with)
+package "3DEXPERIENCE Entities" {
+entity Document
+entity File
+}
+DocHelperCtrl ..> Document : interacts with >
+DocHelperCtrl ..> File : interacts with >
+
+@enduml

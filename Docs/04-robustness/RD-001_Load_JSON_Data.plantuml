@@ -1,0 +1,64 @@
+@startuml RD-001_Load_JSON_Data_v2
+!theme vibrant
+left to right direction
+actor Widget
+
+package "DYTUtils - Document Extension" {
+  control "Orchestrator\n(Doc Extension)" as DocExtCtrl
+}
+
+package "DYTUtils - DocumentWebServiceHelper" {
+  control "Document Helper" as DocHelperCtrl
+}
+
+package "3DEXPERIENCE" {
+  entity Document
+  entity File
+}
+
+entity DownloadedJson
+
+Widget --> DocExtCtrl : 1. loadJsonFromDocument()
+
+DocExtCtrl --> DocHelperCtrl : 2. searchDocumentByTitle()
+DocHelperCtrl --> Document : 2.1 (vyhledá dokument)
+Document ..> DocHelperCtrl : (vrací DocumentInfo[] / nebo indikaci 'nenalezeno/chyba')
+
+note right of DocHelperCtrl
+  Logika zpracování v Helperu:
+  Pokud dokument nenalezen (prázdné pole/null),
+  nebo chyba vyhledávání, Helper vrací (2b).
+  Jinak vrací pole DocumentInfo (2a).
+end note
+DocHelperCtrl ..> DocExtCtrl : 2a. (vrací DocumentInfo[])
+DocHelperCtrl .[#red].> DocExtCtrl : 2b. <color:red>(chyba: Dokument nenalezen / prázdné pole)</color>
+
+
+' Orchestrator zpracovává odpověď od Helperu
+' DocExtCtrl interně vezme první DocumentInfo z pole, pokud 2a úspěch.
+' Pokud chyba 2b:
+DocExtCtrl .[#red].> Widget : <color:red>(reject: Dokument nenalezen)</color>
+' Pokud úspěch 2a, pokračuje:
+
+DocExtCtrl --> DocHelperCtrl : 3. downloadFileContentByName()
+DocHelperCtrl --> File : 3.1 (získá obsah)
+File ..> DocHelperCtrl : (vrací obsah, FileInfo / nebo indikaci 'nenalezeno')
+
+note right of DocHelperCtrl
+  Logika zpracování v Helperu:
+  Pokud soubor nenalezen,
+  Helper vrací chybu Orchestratoru (3b).
+  Jinak vrací obsah a FileInfo (3a).
+end note
+DocHelperCtrl ..> DocExtCtrl : 3a. (vrací obsah, FileInfo)
+DocHelperCtrl .[#red].> DocExtCtrl :  <color:red>3b. (chyba: Soubor nenalezen)</color>
+
+' Orchestrator zpracovává odpověď od Helperu
+' Pokud chyba 3b:
+DocExtCtrl .[#red].> Widget : <color:red>(reject: Soubor nenalezen)</color>
+' Pokud úspěch 3a, pokračuje:
+
+DocExtCtrl --> DownloadedJson : 4. (vytvoří)
+DocExtCtrl ..> Widget : 5. (vrátí DownloadedJson)
+
+@enduml

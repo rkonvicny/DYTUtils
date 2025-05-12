@@ -1,0 +1,68 @@
+@startuml SD-001_Load_JSON_Data
+!theme vibrant
+title Sekvenční diagram: UC-001 Načtení JSON dat z dokumentu
+
+actor Widget
+participant "DocExtCtrl\n(Orchestrator)" as DocExtCtrl
+participant "DocHelperCtrl\n(Helper)" as DocHelperCtrl
+entity Document
+entity File
+entity DownloadedJson
+
+Widget -> DocExtCtrl : 1. loadJsonFromDocument(documentTitle, fileName)
+activate DocExtCtrl
+
+DocExtCtrl -> DocHelperCtrl : 2. searchDocumentByTitle(documentTitle)
+activate DocHelperCtrl
+
+DocHelperCtrl -> Document : 2.1 Vyhledá dokument
+activate Document
+Document -->> DocHelperCtrl : DocumentInfo[] / null
+deactivate Document
+
+alt Dokument nalezen (pole není prázdné/null)
+    DocHelperCtrl -->> DocExtCtrl : 2a. DocumentInfo[] (obsahující nalezený dokument)
+    deactivate DocHelperCtrl
+
+    DocExtCtrl -> DocExtCtrl : Vezme první DocumentInfo z pole (docInfo = result[0])
+    ' Zde by se získalo docId z docInfo
+
+    DocExtCtrl -> DocHelperCtrl : 3. downloadFileContentByName(docId, fileName)
+    activate DocHelperCtrl
+
+    DocHelperCtrl -> File : 3.1 Získá obsah souboru
+    activate File
+    File -->> DocHelperCtrl : { content, fileInfo } / null
+    deactivate File
+
+    alt Soubor nalezen
+        DocHelperCtrl -->> DocExtCtrl : 3a. { content, fileInfo }
+        deactivate DocHelperCtrl
+
+        DocExtCtrl -> DocExtCtrl : 4. Parse content as JSON
+        alt JSON je validní
+            DocExtCtrl -> DownloadedJson : 5. Vytvoří DownloadedJson
+            activate DownloadedJson
+            DownloadedJson -->> DocExtCtrl : instance DownloadedJson
+            deactivate DownloadedJson
+
+            DocExtCtrl -->> Widget : 6. Promise<DownloadedJson> (resolves)
+        else JSON není validní
+            DocExtCtrl -->> Widget : <color:red>Promise (rejects: Chyba parsování JSON)</color>
+        end
+
+    else Soubor nenalezen
+        DocHelperCtrl -->> DocExtCtrl : <color:red>3b. null (nebo chyba "File not found")</color>
+        deactivate DocHelperCtrl
+        DocExtCtrl -->> Widget : <color:red>Promise (rejects: Soubor nenalezen)</color>
+    end
+
+else Dokument nenalezen (pole je prázdné/null) nebo chyba vyhledávání
+    DocHelperCtrl -->> DocExtCtrl : <color:red>2b. null / prázdné pole / chyba</color>
+    deactivate DocHelperCtrl
+    DocExtCtrl -->> Widget : <color:red>Promise (rejects: Dokument nenalezen)</color>
+end
+
+deactivate DocExtCtrl
+
+@enduml

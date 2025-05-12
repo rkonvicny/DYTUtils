@@ -73,12 +73,11 @@ Následující funkce budou poskytovány modulem `DYTUtils - DocumentWebServiceH
         *   `documentTitle` (string): Titulek dokumentu k vyhledání.
     *   **Výstup (Promise resolvuje na):** Pole `DocumentInfo` objektů, nebo `null` (případně prázdné pole), pokud žádný dokument nebyl nalezen.
 
-*   `lockDocument(docId: string, comment?: string): Promise<void>`
+*   `lockDocument(docId: string): Promise<void>`
     *   **Popis:** Zamkne (rezervuje) "Document" objekt se zadaným `docId`.
     *   **Implementuje:** `[^FR-004]`
     *   **Vstup:**
         *   `docId` (string): ID dokumentu k zamčení.
-        *   `comment` (string, volitelný): Komentář k zamčení.
     *   **Výstup (Promise resolvuje na):** `void` (v případě úspěchu).
 
 *   `unlockDocument(docId: string): Promise<void>`
@@ -98,7 +97,6 @@ Následující funkce budou poskytovány modulem `DYTUtils - DocumentWebServiceH
         *   `fileName` (string): Název vytvářeného souboru.
         *   `fileContent` (string): Obsah souboru.
         *   `contentType` (string): MIME typ obsahu (např. "application/json").
-        *   `comment` (string, volitelný): Komentář k souboru.
     *   **Výstup (Promise resolvuje na):** `FileInfo` objekt (viz `\\3dexpprod\webapps\DYTUtils\webapps\DYTUtils\Docs\navrh_systemu.md`, sekce 4.2) popisující nahraný soubor.
 
 *   `deleteFileByNameFromDocument(docId: string, fileName: string): Promise<void>`
