@@ -1,0 +1,44 @@
+@startuml RD-012_Finalize_File_Upload_To_Document
+!theme vibrant
+left to right direction
+
+actor "Volající Služba (např. JsonManager)" as CallingService
+
+package "DocumentHelper" as DocumentHelperModule {
+    control "finalizeFileUploadToDocument" as finalizeUploadCtrl
+    control "createRequestQuery" as createRequestQueryCtrl
+    control "processFinalizeUploadResponse" as processFinalizeResponseCtrl
+}
+
+package "Connector3DSpace" {
+    boundary "callService API" as ConnectorApi
+}
+
+' Entities are commented out as per previous preference
+' entity "FinalizeUploadInput (param)" as FinalizeUploadInputData ' docId, fileName, contentType, fcsReceipt
+' entity "FinalizeRequestOptions (data)" as FinalizeRequestOptionsData ' Includes JSON body with receipt
+' entity "FinalizeUploadResponse (data)" as FinalizeUploadResponseData
+' entity "FileInfo (result)" as FileInfoResult
+
+' UC-012 Krok 1: Volající služba volá API
+CallingService -> finalizeUploadCtrl : 1. finalizeFileUploadToDocument(docId, fileName, contentType, fcsReceipt)
+
+' UC-012 Krok 2: Sestavení požadavku pro finalizaci nahrání
+finalizeUploadCtrl -> createRequestQueryCtrl : 2. (docId, fileName, contentType, fcsReceipt, type="FinalizeUpload")
+createRequestQueryCtrl ..> finalizeUploadCtrl : 2.1 (FinalizeRequestOptionsData)
+
+' UC-012 Krok 3: Odeslání požadavku na finalizaci a získání odpovědi
+finalizeUploadCtrl -> ConnectorApi : 3. callService(FinalizeRequestOptionsData, csrf=true) ' CSRF true for POST
+ConnectorApi ..> finalizeUploadCtrl : 3.1 (FinalizeUploadResponseData)
+ConnectorApi .[#red].> finalizeUploadCtrl : 3.1a <color:red>failure (finalize error - UC012:7.A, 7.B, 7.C)</color>
+
+' UC-012 Krok 4: Zpracování FinalizeUploadResponse
+finalizeUploadCtrl -> processFinalizeResponseCtrl : 4. (FinalizeUploadResponseData)
+processFinalizeResponseCtrl ..> finalizeUploadCtrl : 4.1 success (FileInfoResult)
+processFinalizeResponseCtrl .[#red].> finalizeUploadCtrl : 4.1a <color:red>failure (processing error - UC012:7.D)</color>
+
+' UC-012 Krok 5: Vrácení odpovědi
+finalizeUploadCtrl ..> CallingService : 5. (FileInfoResult)
+finalizeUploadCtrl .[#red].> CallingService : 5.a <color:red>failure</color> ' Propagate error from any previous critical step
+
+@enduml

@@ -1,0 +1,44 @@
+@startuml RD-005_Get_Checkin_Ticket_For_Upload
+!theme vibrant
+left to right direction
+
+actor "Volající Služba (např. JsonManager)" as CallingService
+
+package "DocumentHelper" as DocumentHelperModule {
+    control "getCheckinTicketForUpload" as getCheckinTicketCtrl
+    control "createRequestQuery" as createRequestQueryCtrl 
+    control "processCheckinTicketResponse" as processCheckinTicketCtrl
+}
+
+package "Connector3DSpace" {
+    boundary "callService API" as ConnectorApi
+}
+
+' Entities are commented out as per previous preference
+' entity "DocId (param)" as DocIdParam
+' entity "CheckinTicketRequestOptions (data)" as CheckinTicketRequestOptionsData
+' entity "CheckinTicketResponse (data)" as CheckinTicketResponseData
+' entity "CheckinTicketInfo (result)" as CheckinTicketInfoResult ' fcsUploadUrl, ticketParamName, ticketValue
+
+' UC-005 Krok 1: Volající služba volá API
+CallingService -> getCheckinTicketCtrl : 1. getCheckinTicketForUpload(docId)
+
+' UC-005 Krok 2: Sestavení požadavku na Checkin Ticket
+getCheckinTicketCtrl -> createRequestQueryCtrl : 2. (docId, type="GetCheckinTicket")
+createRequestQueryCtrl ..> getCheckinTicketCtrl : 2.1 (CheckinTicketRequestOptionsData)
+
+' UC-005 Krok 3: Odeslání požadavku na Checkin Ticket a získání odpovědi
+getCheckinTicketCtrl -> ConnectorApi : 3. callService(CheckinTicketRequestOptionsData, csrf=true) ' CSRF true for PUT
+ConnectorApi ..> getCheckinTicketCtrl : 3.1 (CheckinTicketResponseData)
+ConnectorApi .[#red].> getCheckinTicketCtrl : 3.1a <color:red>failure (get ticket error - UC005:7.A, 7.B, 7.C)</color>
+
+' UC-005 Krok 4: Zpracování CheckinTicketResponse
+getCheckinTicketCtrl -> processCheckinTicketCtrl : 4. (CheckinTicketResponseData)
+processCheckinTicketCtrl ..> getCheckinTicketCtrl : 4.1 success (CheckinTicketInfoResult)
+processCheckinTicketCtrl .[#red].> getCheckinTicketCtrl : 4.1a <color:red>failure (invalid ticket - UC005:7.D)</color>
+
+' UC-005 Krok 5: Vrácení odpovědi
+getCheckinTicketCtrl ..> CallingService : 5. (CheckinTicketInfoResult)
+getCheckinTicketCtrl .[#red].> CallingService : 5.a <color:red>failure</color> ' Propagate error from any previous critical step
+
+@enduml

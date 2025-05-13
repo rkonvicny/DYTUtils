@@ -1,0 +1,44 @@
+@startuml RD-006_Create_New_Document
+!theme vibrant
+left to right direction
+
+actor "Volající Služba (např. JsonManager)" as CallingService
+
+package "DocumentHelper" as DocumentHelperModule {
+    control "createDocument" as createDocumentCtrl
+    control "createRequestQuery" as createRequestQueryCtrl 
+    control "processCreateResponse" as processCreateResponseCtrl
+}
+
+package "Connector3DSpace" {
+    boundary "callService API" as ConnectorApi
+}
+
+' Entities are commented out as per previous preference
+' entity "DocumentCreationParams (data)" as DocumentCreationParamsData ' documentTitle, optionalAttributes
+' entity "CreateRequestOptions (data)" as CreateRequestOptionsData ' Includes JSON body
+' entity "CreateResponse (data)" as CreateResponseData
+' entity "DocumentInfo (result)" as DocumentInfoResult
+
+' UC-006 Krok 1: Volající služba volá API
+CallingService -> createDocumentCtrl : 1. createDocument(documentTitle, optionalAttributes)
+
+' UC-006 Krok 2: Sestavení požadavku na vytvoření dokumentu
+createDocumentCtrl -> createRequestQueryCtrl : 2. (documentTitle, optionalAttributes, type="CreateDocument")
+createRequestQueryCtrl ..> createDocumentCtrl : 2.1 (CreateRequestOptionsData)
+
+' UC-006 Krok 3: Odeslání požadavku na vytvoření dokumentu a získání odpovědi
+createDocumentCtrl -> ConnectorApi : 3. callService(CreateRequestOptionsData, csrf=true) ' CSRF true for POST
+ConnectorApi ..> createDocumentCtrl : 3.1 (CreateResponseData)
+ConnectorApi .[#red].> createDocumentCtrl : 3.1a <color:red>failure (create error - UC006:7.A, 7.B, 7.C)</color>
+
+' UC-006 Krok 4: Zpracování CreateResponse
+createDocumentCtrl -> processCreateResponseCtrl : 4. (CreateResponseData)
+processCreateResponseCtrl ..> createDocumentCtrl : 4.1 success (DocumentInfoResult)
+processCreateResponseCtrl .[#red].> createDocumentCtrl : 4.1a <color:red>failure (processing response error)</color>
+
+' UC-006 Krok 5: Vrácení odpovědi
+createDocumentCtrl ..> CallingService : 5. (DocumentInfoResult)
+createDocumentCtrl .[#red].> CallingService : 5.a <color:red>failure</color> ' Propagate error from any previous critical step
+
+@enduml

@@ -1,114 +1,79 @@
-@startuml RD-002_Save_JSON_Data_vFinal
+@startuml RD-002_Save_JSON_Data
 !theme vibrant
 left to right direction
-' skinparam linetype polyline
 ' skinparam linetype ortho
+
 actor Widget
 
-package "DYTUtils - Document Extension" {
-  control "Orchestrator\n(Doc Extension)" as DocExtCtrl
+package "DocumentHelper" as DocumentHelperModule {
+    control "UC-010 EnsureDocExistsSvc" as UC010_EnsureDocExistsSvc
+    control "UC-007 LockDocSvc" as UC007_LockDocSvc
+    control "UC-009 DeleteFileSvc" as UC009_DeleteFileSvc
+    control "UC-016 CompleteFileUploadSvc" as UC016_CompleteFileUploadSvc
+    control "UC-008 UnlockDocSvc" as UC008_UnlockDocSvc
 }
 
-package "DYTUtils - DocumentWebServiceHelper" {
-  control "Document Helper" as DocHelperCtrl
+package "JsonManager" as JsonManagerModule {
+    control "saveJsonToDocument" as saveJsonToDocumentCtrl
+    control "validateInputParams" as validateInputParamsCtrl
+    control "serializeJsonData" as serializeJsonDataCtrl
 }
 
-package "3DEXPERIENCE" {
-  entity Document
-  entity File
-}
+' Entities (can be added if needed for clarity)
+' entity "jsonData" as jsonDataEntity
+' entity "documentTitle" as documentTitleEntity
+' entity "fileName" as fileNameEntity
+' entity "docId" as docIdEntity
+' entity "documentInfo" as documentInfoEntity
+' entity "fileContent" as fileContentEntity
+' entity "FileInfo" as fileInfoEntity
 
-' Input data
-entity jsonData 
-' Output data
-entity FileInfo 
+Widget --> saveJsonToDocumentCtrl : 1. saveJsonToDocument(documentTitle, fileName, jsonData)
 
-Widget --> DocExtCtrl : 1. saveJsonToDocument(jsonData)\n   (DocExtCtrl serializuje jsonData)
+' UC-002 Step 2: Validate input params
+saveJsonToDocumentCtrl --> validateInputParamsCtrl: 2. (documentTitle, fileName, jsonData)
+validateInputParamsCtrl ..> saveJsonToDocumentCtrl : 2.1 success
+validateInputParamsCtrl .[#red].> saveJsonToDocumentCtrl : 2.1a <color:red>failure (invalid params - UC002:7.A)</color>
 
-' Step 2: Ensure Document Exists
-DocExtCtrl --> DocHelperCtrl : 2. ensureDocumentExists()
-DocHelperCtrl --> Document : 2.1 (zajistí/vytvoří)
-Document ..> DocHelperCtrl : (vrací DocumentInfo / nebo indikaci chyby)
-note left of DocHelperCtrl
-  Logika v Helperu:
-  Pokud operace selže, vrací chybu (2b).
-  Jinak vrací DocumentInfo (2a).
-end note
-DocHelperCtrl ..> DocExtCtrl : 2a. (vrací DocumentInfo)
-DocHelperCtrl .[#red].> DocExtCtrl : 2b. <color:red>(chyba: Dokument operace selhala)</color>
-' Orchestrator handles error
-DocExtCtrl .[#red].> Widget : <color:red>(reject: Dokument operace selhala)</color> ' Pokud 2b
+' UC-002 Step 4: Ensure document exists (UC-010)
+' This happens if validateInputParamsCtrl (step 2) was successful.
+saveJsonToDocumentCtrl --> UC010_EnsureDocExistsSvc : 4. (documentTitle)
+UC010_EnsureDocExistsSvc ..> saveJsonToDocumentCtrl : 4.1 (docId, documentInfo)
+UC010_EnsureDocExistsSvc .[#red].> saveJsonToDocumentCtrl : 4.1a <color:red>failure (ensure doc error - UC002:7.C)</color>
 
-' Step 3: Lock Document (pokud 2a úspěch)
-DocExtCtrl --> DocHelperCtrl : 3. lockDocument()
-DocHelperCtrl --> Document : 3.1 (zamkne)
-note left of DocHelperCtrl
-  Logika v Helperu:
-  Pokud zamčení selže, vrací chybu (3b).
-  Jinak potvrzuje zamčení (3a).
-end note
-DocHelperCtrl ..> DocExtCtrl : 3a. (potvrzení zamčení)
-DocHelperCtrl .[#red].> DocExtCtrl : 3b. <color:red>(chyba: Zamčení selhalo)</color>
-' Orchestrator handles error
-DocExtCtrl .[#red].> Widget : <color:red>(reject: Zamčení selhalo)</color> ' Pokud 3b
+' UC-002 Step 5: Lock document (UC-007)
+' This happens if step 4 was successful.
+saveJsonToDocumentCtrl --> UC007_LockDocSvc : 5. (docId)
+UC007_LockDocSvc ..> saveJsonToDocumentCtrl : 5.1 success (lock confirmed)
+UC007_LockDocSvc .[#red].> saveJsonToDocumentCtrl : 5.1a <color:red>failure (lock error - UC002:7.D)</color>
 
-' Step 4: Delete Existing File (pokud 3a úspěch)
-DocExtCtrl --> DocHelperCtrl : 4. deleteFileByNameFromDocument()
-DocHelperCtrl --> File : 4.1 (smaže)
-note left of DocHelperCtrl
-  Logika v Helperu:
-  Pokud smazání selže, vrací chybu (4b).
-  Jinak potvrzuje smazání (4a).
-end note
-DocHelperCtrl ..> DocExtCtrl : 4a. (potvrzení smazání)
-DocHelperCtrl .[#red].> DocExtCtrl : 4b. <color:red>(chyba: Smazání selhalo)</color>
-' Orchestrator handles error
-note right of DocExtCtrl
-  Při chybě 4b (Smazání selhalo),
-  Orchestrator se pokusí odemknout
-  dokument před rejectem Widgetu.
-end note
-DocExtCtrl .[#red].> Widget : <color:red>(reject: Smazání selhalo)</color> ' Pokud 4b
+' UC-002 Step 6: Delete existing file (UC-009)
+' This happens if step 5 was successful.
+saveJsonToDocumentCtrl --> UC009_DeleteFileSvc : 6. (docId, fileName)
+UC009_DeleteFileSvc ..> saveJsonToDocumentCtrl : 6.1 success (delete confirmed / or file not found)
+UC009_DeleteFileSvc .[#orange].> saveJsonToDocumentCtrl : 6.1a <color:orange>failure (delete error - UC002:7.E)</color> ' Orange for non-critical if file not found
 
-' Step 5: Upload New File (pokud 4a úspěch)
-DocExtCtrl --> DocHelperCtrl : 5. uploadFileToDocument()
-DocHelperCtrl --> File : 5.1 (nahraje)
-File ..> DocHelperCtrl : (vrací FileInfo / nebo indikaci chyby)
-note left of DocHelperCtrl
-  Logika v Helperu:
-  Pokud nahrání selže, vrací chybu (5b).
-  Jinak vrací FileInfo (5a).
-end note
-DocHelperCtrl ..> DocExtCtrl : 5a. (vrací FileInfo)
-DocHelperCtrl .[#red].> DocExtCtrl : 5b. <color:red>(chyba: Nahrání selhalo)</color>
-' Orchestrator handles error
-note right of DocExtCtrl
-  Při chybě 5b (Nahrání selhalo),
-  Orchestrator se pokusí odemknout
-  dokument před rejectem Widgetu.
-end note
-DocExtCtrl .[#red].> Widget : <color:red>(reject: Nahrání selhalo)</color> ' Pokud 5b
+' UC-002 Step 3: Serialize jsonData
+' This happens if step 6 was successful (or file not found was ok).
+saveJsonToDocumentCtrl --> serializeJsonDataCtrl : 3. (jsonData)
+serializeJsonDataCtrl ..> saveJsonToDocumentCtrl : 3.1 (fileContent)
+serializeJsonDataCtrl .[#red].> saveJsonToDocumentCtrl : 3.1a <color:red>failure (serialization error - UC002:7.B)</color>
 
-' Step 6: Unlock Document (pokud 5a úspěch)
-DocExtCtrl --> DocHelperCtrl : 6. unlockDocument()
-DocHelperCtrl --> Document : 6.1 (odemkne)
-note left of DocHelperCtrl
-  Logika v Helperu:
-  Pokud odemčení selže, vrací chybu (6b).
-  Jinak potvrzuje odemčení (6a).
-end note
-DocHelperCtrl ..> DocExtCtrl : 6a. (potvrzení odemčení)
-DocHelperCtrl .[#red].> DocExtCtrl : 6b. <color:red>(chyba: Odemčení selhalo)</color>
-' Orchestrator handles unlock error
-note right of DocExtCtrl
-  Při chybě 6b (Odemčení selhalo),
-  Orchestrator zaloguje chybu,
-  ale hlavní operace (uložení)
-  byla úspěšná.
-end note
+' UC-002 Step 7: Upload file (UC-016)
+' This happens if step 3 (serialization) was successful.
+saveJsonToDocumentCtrl --> UC016_CompleteFileUploadSvc : 7. (docId, fileName, fileContent)
+UC016_CompleteFileUploadSvc ..> saveJsonToDocumentCtrl : 7.1 (FileInfo)
+UC016_CompleteFileUploadSvc .[#red].> saveJsonToDocumentCtrl : 7.1a <color:red>failure (upload error - UC002:7.F)</color>
 
-' Step 7: Return FileInfo to Widget (pokud 5a úspěch)
-DocExtCtrl --> FileInfo : 7. (připraví FileInfo z 5a)
-DocExtCtrl ..> Widget : 8. (vrátí FileInfo)
+' UC-002 Step 8: Unlock document (UC-008)
+' This happens if step 7 was successful (or even if it failed, as a cleanup).
+' The "best-effort" unlock logic is handled by saveJsonToDocumentCtrl.
+saveJsonToDocumentCtrl --> UC008_UnlockDocSvc : 8. (docId)
+UC008_UnlockDocSvc ..> saveJsonToDocumentCtrl : 8.1 success (unlock confirmed)
+UC008_UnlockDocSvc .[#orange].> saveJsonToDocumentCtrl : 8.1a <color:orange>failure (unlock error - UC002:7.G, log only)</color>
+
+' UC-002 Step 9: Return result to Widget
+saveJsonToDocumentCtrl ..> Widget : 9. (FileInfo) ' Final success
+saveJsonToDocumentCtrl .[#red].> Widget : 9.a <color:red>failure ' Final failure from any critical previous step</color>
 
 @enduml

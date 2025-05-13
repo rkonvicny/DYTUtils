@@ -1,0 +1,53 @@
+@startuml SD-003_Search_Document_By_Title
+!theme vibrant
+title UC-003: Vyhledání dokumentu podle názvu - Sekvenční Diagram
+
+participant "callingSvc:CallingService\n(např. JsonManager)" as CallingService
+participant "docHelper:DocumentHelper" as DocumentHelper
+participant "connector:Connector3DSpace" as Connector
+
+autonumber "<b>[0]"
+
+CallingService -> DocumentHelper : searchDocumentByTitle(documentTitle)
+activate DocumentHelper
+
+DocumentHelper -> DocumentHelper : 2. Sestavení URL a parametrů\n(searchStr = documentTitle)
+
+DocumentHelper -> Connector : 3. callService(options)\n<size:10>(method: GET, endpoint: /documents/search, csrf: false)</size>
+activate Connector
+Connector --> DocumentHelper : 3.1 searchPlatformResponse
+deactivate Connector
+
+alt 7.A Chyba platformy / komunikace
+    DocumentHelper --> CallingService : failure (platform/communication error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 4. Zpracování odpovědi platformy\n(extrakce DocumentInfoList)
+
+alt 7.B Neočekávaný formát odpovědi
+    DocumentHelper --> CallingService : failure (unexpected response format)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper --> CallingService : 5. searchResponse (DocumentInfoList)
+deactivate DocumentHelper
+
+== Poznámky ==
+note over DocumentHelper, Connector
+  Tento diagram zobrazuje interakci na úrovni DocumentHelpera
+  při volání služby vyhledávání dokumentů.
+  Krok 2 a 4 jsou interní operace DocumentHelpera.
+end note
+
+note right of CallingService
+  Datum vytvoření: 2025-05-13
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

@@ -1,93 +1,97 @@
 ---
 **ID Případu Užití:** UC-002
 **Název Případu Užití:** Uložení JSON dat do dokumentu
-**Datum Vytvoření:** 2025-05-12
+**Datum Vytvoření:** 2025-05-13
 **Autor:** KONR
-**Verze:** 0.1
+**Verze:** 0.4 (Aktualizováno pro volání UC-010, UC-007, UC-009, UC-016, UC-008)
+**Datum Revize:** 2025-05-13
+**Poskytuje:** Json Manager
 ---
 
 ### 1. Název Případu Užití
 Uložení (nebo nahrazení) JSON dat jako souboru v 3DEXPERIENCE "Document" objektu.
 
 ### 2. Aktér(ři)
--   Primární aktér: Widget
+-   Primární aktér: `Widget` (nebo jiná komponenta volající `Json Manager`)
 
 ### 3. Cíl
 Widget potřebuje uložit (nebo aktualizovat) JSON data jako soubor do konkrétního "Document" objektu v 3DEXPERIENCE. Pokud soubor se stejným názvem již existuje, má být jeho obsah nahrazen.
 
 ### 4. Předpoklady
 -   Widget je autentizován v prostředí 3DEXPERIENCE (toto zajišťuje platforma a `Connector3DSpace.js`).
--   Utilita `DYTUtils - Document Extension` je dostupná a inicializovaná.
+-   Utilita `JSON Manager` je dostupná a inicializovaná.
 -   Widget zná název "Document" objektu (`documentTitle`), název souboru (`fileName`), pod kterým se mají data uložit, a má připravena JSON data (`jsonData`).
+-   `Document Helper` je dostupný a nakonfigurovaný.
 
 ### 5. Hlavní úspěšný scénář (Akce - Reakce)
 
-| Krok | Aktér / Systém                     | Akce / Reakce                                                                                                                               |
-| :--- | :--------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1    | Aktér (Widget)                     | Volá funkci `saveJsonToDocument` utility `DYTUtils - Document Extension` s parametry `documentTitle`, `fileName` a `jsonData`.                |
-| 2    | Systém (Utilita Doc Extension)     | Validuje vstupní parametry.                                                                                                                 |
-| 3    | Systém (Utilita Doc Extension)     | Volá `DocumentWebServiceHelper.ensureDocumentExists(documentTitle)`.                                                                        |
-| 4    | Systém (Helper)                    | Zajistí existenci dokumentu (vytvoří, pokud neexistuje) a vrátí `docId`.                                                                    |
-| 5    | Systém (Utilita Doc Extension)     | Volá `DocumentWebServiceHelper.lockDocument(docId)`.                                                                                        |
-| 6    | Systém (Helper)                    | Zamkne dokument.                                                                                                                            |
-| 7    | Systém (Utilita Doc Extension)     | Volá `DocumentWebServiceHelper.deleteFileByNameFromDocument(docId, fileName)` (pro zajištění nahrazení).                                    |
-| 8    | Systém (Helper)                    | Smaže existující soubor(y) s daným `fileName` (pokud existují).                                                                             |
-| 9    | Systém (Utilita Doc Extension)     | Serializuje `jsonData` na JSON string.                                                                                                      |
-| 10   | Systém (Utilita Doc Extension)     | Volá `DocumentWebServiceHelper.uploadFileToDocument(docId, fileName, jsonString, "application/json")`.                                      |
-| 11   | Systém (Helper)                    | Nahraje nový soubor na FCS a připojí metadata k dokumentu. Vrátí `FileInfo` nahraného souboru.                                               |
-| 12   | Systém (Utilita Doc Extension)     | Volá `DocumentWebServiceHelper.unlockDocument(docId)`.                                                                                      |
-| 13   | Systém (Helper)                    | Odemkne dokument.                                                                                                                           |
-| 14   | Systém (Utilita Doc Extension)     | Resolvuje Promise s objektem `FileInfo` nahraného souboru Widgetu.                                                                          |
+| Krok | Aktér / Systém (`Json Manager`) | Akce / Reakce                                                                                                                                                                                             |
+| :--- | :------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Aktér (`Widget`)                | Volá metodu `saveJsonToDocument` `Json Manageru` s parametry `documentTitle`, `fileName` a `jsonData` (JavaScript objekt).                                                                                |
+| 2    | Systém (`Json Manager`)         | Validuje vstupní parametry. Pokud neplatné, přejde na scénář 7.A.                                                                                                                                         |
+| 3    | Systém (`Json Manager`)         | Serializuje `jsonData` na textový řetězec `fileContent` (JSON formát). Pokud chyba při serializaci, přejde na scénář 7.B.                                                                                 |
+| 4    | Systém (`Json Manager`)         | `<<invokes>>` UC-010 (Zajištění existence dokumentu) s parametrem `documentTitle`. Získá `docId` a `documentInfo`. Pokud chyba, přejde na scénář 7.C.                                                      |
+| 5    | Systém (`Json Manager`)         | `<<invokes>>` UC-007 (Zamčení dokumentu) s parametrem `docId`. Pokud chyba (např. dokument je již zamčen někým jiným), přejde na scénář 7.D.                                                              |
+| 6    | Systém (`Json Manager`)         | `<<invokes>>` UC-009 (Smazání souboru z dokumentu) s parametry `docId` a `fileName`. Pokud chyba (jiná než "soubor nenalezen"), přejde na scénář 7.E. (Nenalezení souboru je v tomto kontextu v pořádku).    |
+| 7    | Systém (`Json Manager`)         | `<<invokes>>` UC-016 (Kompletní nahrání souboru do dokumentu) s parametry `docId`, `fileName` a `fileContent`. Získá `fileInfo` nahraného souboru. Pokud chyba, přejde na scénář 7.F.                       |
+| 8    | Systém (`Json Manager`)         | `<<invokes>>` UC-008 (Odemčení dokumentu) s parametrem `docId`. Pokud chyba, přejde na scénář 7.G.                                                                                                         |
+| 9    | Systém (`Json Manager`)         | Vrátí volající komponentě (`Widget`) potvrzení o úspěšném uložení (např. `true` nebo `fileInfo`).                                                                                                           |
 
 ### 6. Výsledek (Úspěch)
--   JSON data jsou úspěšně serializována a uložena jako soubor do specifikovaného "Document" objektu.
--   Widget obdrží metadata (`FileInfo`) o nově nahraném souboru.
+-   JSON data jsou úspěšně serializována a uložena do specifikovaného souboru v dokumentu v 3DEXPERIENCE.
+-   Dokument je po operaci odemčen.
+-   `Json Manager` vrátí potvrzení o úspěchu (např. `FileInfo` nahraného souboru).
 
 ### 7. Rozšíření (Alternativní scénáře / Chybové stavy)
 
-*   **7.A. Chyba při zajištění existence dokumentu**
-    *   **Spouštěcí podmínka:** V kroku 4 hlavního scénáře, `DocumentWebServiceHelper.ensureDocumentExists` selže (např. nelze vytvořit dokument, chyba při vyhledávání).
-    *   **Reakce systému (Utilita Doc Extension):** Rejectuje Promise vrácenou Widgetu s příslušnou chybou.
+*   **7.A. Neplatné vstupní parametry**
+    *   **Spouštěcí podmínka:** V kroku 2, vstupní parametry nejsou platné.
+    *   **Reakce systému (`Json Manager`):** Vrátí chybovou zprávu volající komponentě.
     *   **Výsledek:** Případ užití končí neúspěchem.
 
-*   **7.B. Chyba při zamčení dokumentu**
-    *   **Spouštěcí podmínka:** V kroku 6 hlavního scénáře, `DocumentWebServiceHelper.lockDocument` selže (např. dokument je již zamčen jiným uživatelem, nedostatečná oprávnění).
-    *   **Reakce systému (Utilita Doc Extension):** Rejectuje Promise vrácenou Widgetu s příslušnou chybou.
+*   **7.B. Chyba při serializaci JSON**
+    *   **Spouštěcí podmínka:** V kroku 3, `jsonData` nelze serializovat.
+    *   **Reakce systému (`Json Manager`):** Vrátí chybovou zprávu volající komponentě.
     *   **Výsledek:** Případ užití končí neúspěchem.
 
-*   **7.C. Chyba při nahrávání souboru**
-    *   **Spouštěcí podmínka:** V kroku 11 hlavního scénáře, `DocumentWebServiceHelper.uploadFileToDocument` selže (např. chyba FCS, chyba při připojování metadat).
-    *   **Reakce systému (Utilita Doc Extension):** Pokusí se odemknout dokument voláním `DocumentWebServiceHelper.unlockDocument(docId)`. Rejectuje Promise vrácenou Widgetu s chybou z nahrávání.
+*   **7.C. Chyba při zajištění existence dokumentu**
+    *   **Spouštěcí podmínka:** V kroku 4, volání UC-010 selže.
+    *   **Reakce systému (`Json Manager`):** Propaguje chybu z UC-010 volající komponentě.
+    *   **Výsledek:** Případ užití končí neúspěchem.
+
+*   **7.D. Chyba při zamčení dokumentu**
+    *   **Spouštěcí podmínka:** V kroku 5, volání UC-007 selže.
+    *   **Reakce systému (`Json Manager`):** Propaguje chybu z UC-007 volající komponentě.
+    *   **Výsledek:** Případ užití končí neúspěchem.
+
+*   **7.E. Chyba při mazání souboru (jiná než "soubor nenalezen")**
+    *   **Spouštěcí podmínka:** V kroku 6, volání UC-009 selže s chybou, která není "soubor nenalezen".
+    *   **Reakce systému (`Json Manager`):** Pokusí se odemknout dokument pomocí UC-008 (pokud byl zamčen). Propaguje chybu z UC-009 volající komponentě.
     *   **Výsledek:** Případ užití končí neúspěchem. Dokument by měl být (pokud možno) odemčen.
 
-*   **7.D. Chyba při odemčení dokumentu (po úspěšném nahrání)**
-    *   **Spouštěcí podmínka:** V kroku 13 hlavního scénáře, `DocumentWebServiceHelper.unlockDocument` selže, ale nahrání souboru v kroku 11 bylo úspěšné.
-    *   **Reakce systému (Utilita Doc Extension):** Resolvuje Promise s `FileInfo` (protože hlavní operace – uložení dat – byla úspěšná). Chyba při odemčení by měla být zaznamenána (logována), ale neměla by bránit vrácení úspěšného výsledku hlavní operace.
-    *   **Výsledek:** Případ užití končí úspěchem (data jsou uložena), ale s potenciálním problémem (dokument zůstává zamčený).
+*   **7.F. Chyba při nahrávání souboru**
+    *   **Spouštěcí podmínka:** V kroku 7, volání UC-016 selže.
+    *   **Reakce systému (`Json Manager`):** Pokusí se odemknout dokument pomocí UC-008 (pokud byl zamčen). Propaguje chybu z UC-016 volající komponentě.
+    *   **Výsledek:** Případ užití končí neúspěchem. Dokument by měl být (pokud možno) odemčen.
 
-*   **7.E. Chyba při komunikaci s platformou 3DEXPERIENCE (obecná)**
-    *   **Spouštěcí podmínka:** Během kteréhokoli kroku zahrnujícího volání na `DocumentWebServiceHelper` nebo `Connector3DSpace.js` dojde k neočekávané chybě komunikace.
-    *   **Reakce systému (Utilita Doc Extension):** Pokud je to možné (např. pokud byl dokument zamčen), pokusí se dokument odemknout. Rejectuje Promise vrácenou Widgetu s chybovým objektem.
-    *   **Výsledek:** Případ užití končí neúspěchem.
+*   **7.G. Chyba při odemykání dokumentu**
+    *   **Spouštěcí podmínka:** V kroku 8, volání UC-008 selže.
+    *   **Reakce systému (`Json Manager`):** Propaguje chybu volající komponentě. Soubor je již nahrán, ale dokument může zůstat zamčený. Hlavní operace (uložení dat) je považována za úspěšnou, ale je zde vedlejší problém.
+    *   **Výsledek:** Případ užití končí s chybou při odemykání, ale data jsou uložena.
 
 ### 8. Poznámky
--   Tento případ užití zajišťuje, že dokument existuje (vytvoří ho, pokud je potřeba).
--   Pokud soubor se stejným názvem již v dokumentu existuje, je jeho obsah přepsán (starý soubor je smazán a nahrán nový).
--   Utilita se stará o zamčení a odemčení dokumentu během operace.
+-   Tento UC orchestruje komplexní operaci zahrnující zajištění existence dokumentu, jeho zamčení, správu souborů a odemčení.
+-   Krok 8 (odemčení) by měl být proveden i v případě, že kroky 6 nebo 7 selžou, pokud byl dokument úspěšně zamčen v kroku 5 (logika `finally` bloku). Toto je důležité pro robustnost.
+-   Pokud soubor se stejným názvem již v dokumentu existuje, je jeho obsah přepsán.
 
-### 9. Související Funkční Požadavky
--   `[^FR-001]` - Zajištění existence/Vytvoření nového 3DEXPERIENCE "Document" objektu
--   `[^FR-002]` - Nahrání JSON souboru do "Document" objektu
--   `[^FR-004]` - Zamčení (Rezervace) "Document" objektu pro modifikaci
--   `[^FR-005]` - Smazání souboru z "Document" objektu
--   `[^FR-006]` - Odemčení (Uvolnění rezervace) "Document" objektu
--   `[^FR-007]` - Vyhledání "Document" objektu podle názvu
+### 9. Volané Případy Užití
+-   UC-010: Zajištění existence dokumentu
+-   UC-007: Zamčení dokumentu
+-   UC-009: Smazání souboru z dokumentu
+-   UC-016: Kompletní nahrání souboru do dokumentu
+-   UC-008: Odemčení dokumentu
+
+### 10. Použito v Případech Užití
+-   N/A (Tento UC je volán přímo z `Widgetu`)
 
 ---
-<!-- Definice poznámek pod čarou pro FR -->
-[^FR-001]: FR-001 - Zajištění existence/Vytvoření nového 3DEXPERIENCE "Document" objektu
-[^FR-002]: FR-002 - Nahrání JSON souboru do "Document" objektu
-[^FR-004]: FR-004 - Zamčení (Rezervace) "Document" objektu pro modifikaci
-[^FR-005]: FR-005 - Smazání souboru z "Document" objektu
-[^FR-006]: FR-006 - Odemčení (Uvolnění rezervace) "Document" objektu
-[^FR-007]: FR-007 - Vyhledání "Document" objektu podle názvu

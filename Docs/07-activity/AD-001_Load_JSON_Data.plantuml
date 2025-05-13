@@ -1,0 +1,58 @@
+@startuml AD-001_Load_JSON_Data
+!theme vibrant
+title Activity Diagram: UC-001 Načtení JSON dat z dokumentu
+
+start
+
+partition Widget {
+  :Widget volá\n`loadJsonFromDocument(documentTitle, fileName)`;
+}
+
+partition JsonManagerController {
+  :Volá `DocHelperCtrl.searchDocumentByTitle(documentTitle)`;
+
+  if (Dokument nalezen?) then (ano)
+    :Získá `docId` z `DocumentInfo`;
+    :Volá `DocHelperCtrl.downloadFileContentByName(docId, fileName)`;
+
+    if (Soubor nalezen\na obsah získán?) then (ano)
+      :Parsovat obsah jako JSON;
+      if (JSON je validní?) then (ano)
+        :Vytvoří objekt `DownloadedJson`;
+        :Vrátí `Promise<DownloadedJson>` (resolves);
+      else (JSON není validní)
+        :Vrátí `Promise` (rejects:\nChyba parsování JSON);
+      endif
+    else (ne)
+      :Vrátí `Promise` (rejects:\nSoubor nenalezen);
+    endif
+  else (ne)
+    :Vrátí `Promise` (rejects:\nDokument nenalezen);
+  endif
+}
+
+stop
+
+partition DocHelperCtrl #LightSkyBlue {
+  split
+    :Aktivita `searchDocumentByTitle`\n(interakce s 3DX);
+  split again
+    :Aktivita `downloadFileContentByName`\n(interakce s 3DX);
+  endsplit
+  note right
+    Interní operace Helperu
+    (vyhledání dokumentu, stažení souboru)
+    jsou zde zobrazeny jako aktivity
+    volané z JsonManagerController.
+    Detailní interakce jsou
+    v sekvenčním diagramu.
+  end note
+}
+
+' Vztahy mezi swimlanes (implicitní)
+' Widget --> JsonManagerController
+' JsonManagerController --> DocHelperCtrl
+' DocHelperCtrl --> JsonManagerController
+' JsonManagerController --> Widget
+
+@enduml

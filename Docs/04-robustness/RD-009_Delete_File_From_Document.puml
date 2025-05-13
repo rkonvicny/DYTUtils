@@ -1,0 +1,59 @@
+@startuml RD-009_Delete_File_From_Document
+!theme vibrant
+left to right direction
+
+actor "Volající Služba (např. JsonManager)" as CallingService
+
+package "DocumentHelper" as DocumentHelperModule {
+    control "deleteFileFromDocument" as deleteFileCtrl
+    control "getDocumentFilesMetadata" as getFilesMetadataCtrl <<UC-013>>
+    control "findFileIdByName" as findFileIdByNameCtrl
+    control "createRequestQuery" as createRequestQueryCtrl
+    control "processDeleteResponse" as processDeleteResponseCtrl
+}
+
+package "Connector3DSpace" {
+    boundary "callService API" as ConnectorApi
+}
+
+' Entities are commented out
+' entity "InputParams (data)" as InputParamsData ' docId, fileName
+' entity "FileInfoList (data)" as FileInfoListData
+' entity "FileId (data)" as FileIdData
+' entity "DeleteRequestOptions (data)" as DeleteRequestOptionsData
+' entity "DeleteResponse (data)" as DeleteResponseData
+' entity "DeleteConfirmation (result)" as DeleteConfirmationResult
+
+' UC-009 Krok 1: Volající služba volá API
+CallingService -> deleteFileCtrl : 1. deleteFileFromDocument(docId, fileName)
+
+' UC-009 Krok 2: Invoke UC-013 Získání metadat souborů
+deleteFileCtrl -> getFilesMetadataCtrl : 2. (docId)
+getFilesMetadataCtrl ..> deleteFileCtrl : 2.1 (FileInfoListData)
+getFilesMetadataCtrl .[#red].> deleteFileCtrl : 2.1a <color:red>failure (get metadata error - UC009:7.A)</color>
+
+' UC-009 Krok 3: Najdi fileId podle fileName
+deleteFileCtrl -> findFileIdByNameCtrl : 3. (FileInfoListData, fileName)
+findFileIdByNameCtrl ..> deleteFileCtrl : 3.1 success (FileIdData)
+findFileIdByNameCtrl .[#red].> deleteFileCtrl : 3.1a <color:red>failure (file not found - UC009:7.B)</color>
+
+' UC-009 Krok 4: Sestavení požadavku na smazání souboru
+' This happens if fileId was found (step 3.1)
+deleteFileCtrl -> createRequestQueryCtrl : 4. (docId, FileIdData, type="DeleteFile")
+createRequestQueryCtrl ..> deleteFileCtrl : 4.1 (DeleteRequestOptionsData)
+
+' UC-009 Krok 5: Odeslání požadavku na smazání a získání odpovědi
+deleteFileCtrl -> ConnectorApi : 5. callService(DeleteRequestOptionsData, csrf=true) ' CSRF true for DELETE
+ConnectorApi ..> deleteFileCtrl : 5.1 (DeleteResponseData)
+ConnectorApi .[#red].> deleteFileCtrl : 5.1a <color:red>failure (delete error - UC009:7.C, 7.D, 7.E)</color>
+
+' UC-009 Krok 6: Zpracování DeleteResponse
+deleteFileCtrl -> processDeleteResponseCtrl : 6. (DeleteResponseData)
+processDeleteResponseCtrl ..> deleteFileCtrl : 6.1 success (DeleteConfirmationResult)
+processDeleteResponseCtrl .[#red].> deleteFileCtrl : 6.1a <color:red>failure (processing response error)</color>
+
+' UC-009 Krok 7: Vrácení odpovědi
+deleteFileCtrl ..> CallingService : 7. (DeleteConfirmationResult)
+deleteFileCtrl .[#red].> CallingService : 7.a <color:red>failure</color> ' Propagate error from any previous critical step
+
+@enduml

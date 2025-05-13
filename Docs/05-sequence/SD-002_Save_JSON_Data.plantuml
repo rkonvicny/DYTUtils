@@ -1,110 +1,117 @@
 @startuml SD-002_Save_JSON_Data
 !theme vibrant
-title Sekvenční diagram: UC-002 Uložení JSON dat do dokumentu
+title UC-002: Uložení JSON dat do dokumentu - Sekvenční Diagram
 
-actor Widget
-participant "DocExtCtrl\n(Orchestrator)" as DocExtCtrl
-participant "DocHelperCtrl\n(Helper)" as DocHelperCtrl
-entity Document
-entity File
-entity FileInfo
+actor "Widget" as Widget
+participant "jsonMgr:JsonManager" as JsonManager
+participant "docHelper:DocumentHelper" as DocumentHelper
 
-Widget -> DocExtCtrl : 1. saveJsonToDocument(documentTitle, fileName, jsonData)
-activate DocExtCtrl
+autonumber "<b>[0]"
 
-DocExtCtrl -> DocExtCtrl : 1.1 Serializuje jsonData (pokud je objekt)
+Widget -> JsonManager : saveJsonToDocument(documentTitle, fileName, jsonData)
+activate JsonManager
 
-DocExtCtrl -> DocHelperCtrl : 2. ensureDocumentExists(documentTitle)
-activate DocHelperCtrl
-DocHelperCtrl -> Document : 2.1 Zajistí/vytvoří dokument
-activate Document
-Document -->> DocHelperCtrl : DocumentInfo / chyba
-deactivate Document
-
-alt Dokument zajištěn/vytvořen
-    DocHelperCtrl -->> DocExtCtrl : 2a. DocumentInfo
-    deactivate DocHelperCtrl
-
-    DocExtCtrl -> DocHelperCtrl : 3. lockDocument(docId)
-    activate DocHelperCtrl
-    DocHelperCtrl -> Document : 3.1 Zamkne dokument
-    activate Document
-    Document -->> DocHelperCtrl : potvrzení / chyba
-    deactivate Document
-
-    alt Dokument úspěšně zamčen
-        DocHelperCtrl -->> DocExtCtrl : 3a. potvrzení zamčení
-        deactivate DocHelperCtrl
-
-        DocExtCtrl -> DocHelperCtrl : 4. deleteFileByNameFromDocument(docId, fileName)
-        activate DocHelperCtrl
-        DocHelperCtrl -> File : 4.1 Smaže existující soubor (pokud existuje)
-        activate File
-        File -->> DocHelperCtrl : potvrzení / chyba (i pokud soubor neexistuje, je to OK)
-        deactivate File
-        ' Chyba při mazání (pokud je kritická) by se řešila zde, ale pro přepsání je často OK, pokud soubor neexistuje
-        ' Pro zjednodušení předpokládáme, že tento krok buď uspěje, nebo jeho "selhání" (nenalezení souboru) nebrání nahrání nového.
-        DocHelperCtrl -->> DocExtCtrl : 4a. potvrzení (nebo info o nenalezení)
-        deactivate DocHelperCtrl
-
-        DocExtCtrl -> DocHelperCtrl : 5. uploadFileToDocument(docId, fileName, serializedJsonData, "application/json")
-        activate DocHelperCtrl
-        DocHelperCtrl -> File : 5.1 Nahraje nový soubor
-        activate File
-        File -->> DocHelperCtrl : FileInfo / chyba
-        deactivate File
-
-        alt Soubor úspěšně nahrán
-            DocHelperCtrl -->> DocExtCtrl : 5a. FileInfo
-            deactivate DocHelperCtrl
-
-            DocExtCtrl -> DocHelperCtrl : 6. unlockDocument(docId)
-            activate DocHelperCtrl
-            DocHelperCtrl -> Document : 6.1 Odemkne dokument
-            activate Document
-            Document -->> DocHelperCtrl : potvrzení / chyba
-            deactivate Document
-
-            alt Dokument úspěšně odemčen
-                DocHelperCtrl -->> DocExtCtrl : 6a. potvrzení odemčení
-                deactivate DocHelperCtrl
-                DocExtCtrl -> FileInfo : 7. (připraví FileInfo z 5a)
-                DocExtCtrl -->> Widget : 8. Promise<FileInfo> (resolves with FileInfo from 5a)
-            else Chyba při odemykání
-                DocHelperCtrl -->> DocExtCtrl : <color:red>6b. chyba odemykání</color>
-                deactivate DocHelperCtrl
-                DocExtCtrl -> DocExtCtrl : <color:orange>Loguje chybu odemykání, ale operace uložení byla úspěšná</color>
-                DocExtCtrl -> FileInfo : 7. (připraví FileInfo z 5a)
-                DocExtCtrl -->> Widget : 8. Promise<FileInfo> (resolves with FileInfo from 5a)
-            end
-
-        else Chyba při nahrávání souboru
-            DocHelperCtrl -->> DocExtCtrl : <color:red>5b. chyba nahrávání</color>
-            deactivate DocHelperCtrl
-            ' Pokus o odemčení dokumentu před rejectem
-            DocExtCtrl -> DocHelperCtrl : unlockDocument(docId)
-            activate DocHelperCtrl
-            DocHelperCtrl -> Document : Odemkne dokument (best effort)
-            Document -->> DocHelperCtrl
-            deactivate Document
-            DocHelperCtrl -->> DocExtCtrl
-            deactivate DocHelperCtrl
-            DocExtCtrl -->> Widget : <color:red>Promise (rejects: Chyba nahrávání souboru)</color>
-        end
-
-    else Chyba při zamykání dokumentu
-        DocHelperCtrl -->> DocExtCtrl : <color:red>3b. chyba zamykání</color>
-        deactivate DocHelperCtrl
-        ' Není co odemykat, pokud zamčení selhalo
-        DocExtCtrl -->> Widget : <color:red>Promise (rejects: Chyba zamykání dokumentu)</color>
-    end
-
-else Chyba při zajištění/vytvoření dokumentu
-    DocHelperCtrl -->> DocExtCtrl : <color:red>2b. chyba</color>
-    deactivate DocHelperCtrl
-    DocExtCtrl -->> Widget : <color:red>Promise (rejects: Chyba zajištění dokumentu)</color>
+JsonManager -> JsonManager : 2. validateInputParams(documentTitle, fileName, jsonData)
+alt 7.A invalid parameters
+    JsonManager --> Widget : failure (invalid params error)
+    deactivate JsonManager
+    destroy JsonManager
+    return
 end
 
-deactivate DocExtCtrl
+JsonManager -> JsonManager : 3. serializeJsonData(jsonData)
+alt 7.B serialization error
+    JsonManager --> Widget : failure (serialization error)
+    deactivate JsonManager
+    destroy JsonManager
+    return
+end
+
+JsonManager -> DocumentHelper : 4. ensureDocumentExists(documentTitle)\n<size:10><< UC-010 >></size>
+activate DocumentHelper
+DocumentHelper --> JsonManager : docId, documentInfo
+deactivate DocumentHelper
+alt 7.C ensure doc error
+    JsonManager --> Widget : failure (ensure doc error)
+    deactivate JsonManager
+    destroy JsonManager
+    return
+end
+
+JsonManager -> DocumentHelper : 5. reserveDocument(docId)\n<size:10><< UC-007 >></size>
+activate DocumentHelper
+DocumentHelper --> JsonManager : lock confirmation
+deactivate DocumentHelper
+alt 7.D lock error
+    JsonManager --> Widget : failure (lock error)
+    deactivate JsonManager
+    destroy JsonManager
+    return
+end
+
+' --- Critical section: Document is locked ---
+' Need to ensure unlock happens if any step here fails
+
+group Critical Section (Document Locked)
+    JsonManager -> DocumentHelper : 6. deleteFileFromDocument(docId, fileName)\n<size:10><< UC-009 >></size>
+    activate DocumentHelper
+    DocumentHelper --> JsonManager : delete confirmation
+    deactivate DocumentHelper
+    alt 7.E delete error (critical)
+        JsonManager -> DocumentHelper : 8. unreserveDocument(docId)\n<size:10><< UC-008 >></size>
+        activate DocumentHelper
+        DocumentHelper --> JsonManager : unlock confirmation
+        deactivate DocumentHelper
+        JsonManager --> Widget : failure (delete error)
+        deactivate JsonManager
+        destroy JsonManager
+        return
+    end
+    ' Note: 7.E also covers non-critical "file not found" which proceeds
+
+    JsonManager -> DocumentHelper : 7. uploadFileToDocument(docId, fileName, fileContent)\n<size:10><< UC-016 >></size>
+    activate DocumentHelper
+    DocumentHelper --> JsonManager : fileInfo
+    deactivate DocumentHelper
+    alt 7.F upload error
+        JsonManager -> DocumentHelper : 8. unreserveDocument(docId)\n<size:10><< UC-008 >></size>
+        activate DocumentHelper
+        DocumentHelper --> JsonManager : unlock confirmation
+        deactivate DocumentHelper
+        JsonManager --> Widget : failure (upload error)
+        deactivate JsonManager
+        destroy JsonManager
+        return
+    end
+
+    JsonManager -> DocumentHelper : 8. unreserveDocument(docId)\n<size:10><< UC-008 >></size>
+    activate DocumentHelper
+    DocumentHelper --> JsonManager : unlock confirmation
+    deactivate DocumentHelper
+    opt 7.G unlock error
+        JsonManager -> JsonManager : Log unlock error
+    end
+
+    JsonManager --> Widget : 9. success (fileInfo)
+    deactivate JsonManager
+    destroy JsonManager
+end
+
+== Poznámky ==
+note over JsonManager, DocumentHelper
+  Tento diagram zobrazuje orchestraci na úrovni JsonManageru.
+  Interní kroky UC-010, UC-007, UC-009, UC-016, UC-008
+  (volané v DocumentHelper) jsou detailněji popsány
+  v jejich vlastních sekvenčních diagramech.
+  Kroky 2 & 3 v UC-002 jsou interní operace JsonManageru.
+  Krok 8 (odemčení) by měl být proveden i při chybě v krocích 6 nebo 7,
+  pokud bylo zamčení v kroku 5 úspěšné.
+end note
+
+note right of Widget
+  Datum vytvoření: 2025-05-13
+  Autor: KONR
+  Verze: 0.1
+end note
 
 @enduml

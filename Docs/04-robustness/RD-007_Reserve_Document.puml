@@ -1,0 +1,44 @@
+@startuml RD-007_Reserve_Document
+!theme vibrant
+left to right direction
+
+actor "Volající Služba (např. JsonManager)" as CallingService
+
+package "DocumentHelper" as DocumentHelperModule {
+    control "reserveDocument" as reserveDocumentCtrl
+    control "createRequestQuery" as createRequestQueryCtrl 
+    control "processReserveResponse" as processReserveResponseCtrl
+}
+
+package "Connector3DSpace" {
+    boundary "callService API" as ConnectorApi
+}
+
+' Entities are commented out as per previous preference
+' entity "DocId (param)" as DocIdParam
+' entity "ReserveRequestOptions (data)" as ReserveRequestOptionsData
+' entity "ReserveResponse (data)" as ReserveResponseData
+' entity "ReserveConfirmation (result)" as ReserveConfirmationResult
+
+' UC-007 Krok 1: Volající služba volá API
+CallingService -> reserveDocumentCtrl : 1. reserveDocument(docId)
+
+' UC-007 Krok 2: Sestavení požadavku na rezervaci dokumentu
+reserveDocumentCtrl -> createRequestQueryCtrl : 2. (docId, type="ReserveDocument")
+createRequestQueryCtrl ..> reserveDocumentCtrl : 2.1 (ReserveRequestOptionsData)
+
+' UC-007 Krok 3: Odeslání požadavku na rezervaci dokumentu a získání odpovědi
+reserveDocumentCtrl -> ConnectorApi : 3. callService(ReserveRequestOptionsData, csrf=true) ' CSRF true for PUT
+ConnectorApi ..> reserveDocumentCtrl : 3.1 (ReserveResponseData)
+ConnectorApi .[#red].> reserveDocumentCtrl : 3.1a <color:red>failure (reserve error - UC007:7.A, 7.B, 7.C)</color>
+
+' UC-007 Krok 4: Zpracování ReserveResponse
+reserveDocumentCtrl -> processReserveResponseCtrl : 4. (ReserveResponseData)
+processReserveResponseCtrl ..> reserveDocumentCtrl : 4.1 success (ReserveConfirmationResult)
+processReserveResponseCtrl .[#red].> reserveDocumentCtrl : 4.1a <color:red>failure (processing response error)</color>
+
+' UC-007 Krok 5: Vrácení odpovědi
+reserveDocumentCtrl ..> CallingService : 5. (ReserveConfirmationResult)
+reserveDocumentCtrl .[#red].> CallingService : 5.a <color:red>failure</color> ' Propagate error from any previous critical step
+
+@enduml

@@ -1,5 +1,5 @@
 ---
-**Název Dokumentu:** Návrh systému - Utilita pro práci s dokumenty (DYTUtils - Document Extension)
+**Název Dokumentu:** Návrh systému - DYTRON JSON Manager
 **Datum Vytvoření:** 2025-05-10
 **Autor:** KONR
 **Verze:** 0.5 (Refaktorované API na vysokoúrovňové funkce, zmínka o pomocné utilitě)
@@ -8,8 +8,8 @@
 
 # Návrh systému
 
-## Utilita pro práci s dokumenty
-### (DYTUtils - Document Extension)
+## DYTRON JSON Manager
+### (Utilita pro správu JSON dat v dokumentech, zkr. DYTJSONManager)
 
 <br>
 <br>
@@ -27,8 +27,8 @@
 ## Obsah
 
 - [Návrh systému](#návrh-systému)
-  - [Utilita pro práci s dokumenty](#utilita-pro-práci-s-dokumenty)
-    - [(DYTUtils - Document Extension)](#dytutils---document-extension)
+  - [DYTRON JSON Manager](#dytron-json-manager)
+    - [(Utilita pro správu JSON dat v dokumentech, zkr. DYTJSONManager)](#utilita-pro-správu-json-dat-v-dokumentech-zkr-dytjsonmanager)
   - [Obsah](#obsah)
   - [1. Úvod](#1-úvod)
     - [1.1. Účel dokumentu](#11-účel-dokumentu)
@@ -55,7 +55,8 @@
 ## 1. Úvod
 
 ### 1.1. Účel dokumentu
-Tento dokument popisuje návrh systému pro utilitu (dále jen "Utilita"), která rozšiřuje stávající `DYTUtils` o funkce pro práci s objekty typu "Document" a jejich souborovými přílohami (primárně JSON soubory) v prostředí 3DEXPERIENCE. Cílem je poskytnout widgetům jednoduché a robustní API pro běžné operace s dokumenty a soubory.
+Tento dokument popisuje návrh systému pro utilitu `DYTRON JSON Manager` (dále jen "Utilita" nebo zkráceně `DYTJSONManager`), která rozšiřuje stávající `DYTUtils` o funkce pro práci s objekty typu "Document" a jejich souborovými přílohami (primárně JSON soubory) v prostředí 3DEXPERIENCE. Cílem je poskytnout widgetům jednoduché a robustní API pro běžné operace s JSON daty v dokumentech.
+
 
 Tato utilita se zaměřuje na vysokoúrovňové operace čtení a zápisu JSON dat. Pro nízkoúrovňovější operace s dokumenty bude existovat samostatná pomocná utilita (viz sekce 2.3).
 
@@ -85,7 +86,7 @@ Utilita bude interně implementovat vícekrokové procesy vyžadované Document 
 ```plantuml
 @startuml
 actor Widget
-participant "DYTUtils (Doc Extension)" as Utilita
+participant "DYTJSONManager\n(DYTRON JSON Manager)" as Utilita
 participant "DYTUtils - DocumentWebServiceHelper" as HelperUtilita
 participant "Connector3DSpace.js" as Connector
 database "3DEXPERIENCE\n(Document WS, FCS)" as Platforma3DX
@@ -101,8 +102,8 @@ Utilita --> Widget : Výsledek / Chyba
 @enduml
 ```
 ### 2.2. Klíčové komponenty
-1.  **DYTUtils - Document Extension (Tato Utilita):**
-    *   Poskytuje vysokoúrovňové veřejné API pro Widgety (primárně pro čtení/zápis JSON).
+1.  **DYTJSONManager (Tato Utilita):**
+    *   Poskytuje vysokoúrovňové veřejné API (jako DYTRON JSON Manager) pro Widgety (primárně pro čtení/zápis JSON).
     *   Obsahuje logiku pro zpracování požadavků od Widgetů.
     *   Orchestruje volání na pomocnou utilitu `DYTUtils - DocumentWebServiceHelper`.
     *   Zpracovává odpovědi a chyby.
@@ -117,21 +118,20 @@ Utilita --> Widget : Výsledek / Chyba
     *   **File Collaboration Server (FCS):** Zajišťuje fyzické ukládání a stahování souborů.
 
 ### 2.3. Vztah k pomocné utilitě DocumentWebServiceHelper
-Pro zajištění čistého API této utility (`DYTUtils - Document Extension`) a zároveň pro poskytnutí granulárnějších operací pro pokročilé použití bude vytvořena samostatná utilita v rámci projektu `DYTUtils`, nazvaná například `DYTUtils - DocumentWebServiceHelper`.
+Pro zajištění čistého API této utility (`DYTJSONManager`) a zároveň pro poskytnutí granulárnějších operací pro pokročilé použití bude vytvořena samostatná utilita v rámci projektu `DYTUtils`, nazvaná například `DYTUtils - DocumentWebServiceHelper`.
 
 Tato `DocumentWebServiceHelper` utilita bude obsahovat funkce, které přímo mapují na jednotlivé kroky interakce s Document Web Services (např. vytvoření dokumentu, zamčení/odemčení, smazání souboru, vyhledání dokumentu, nahrání/stažení souboru na/z FCS). Bude zodpovědná za implementaci jednotlivých funkčních požadavků (`[^FR-001]` až `[^FR-007]`).
 
-`DYTUtils - Document Extension` bude interně využívat `DocumentWebServiceHelper` k provedení potřebných kroků.
+`DYTJSONManager` bude interně využívat `DocumentWebServiceHelper` k provedení potřebných kroků.
 ## 3. Návrh rozhraní (API Utility)
 
 Tato utilita bude poskytovat následující dvě klíčové vysokoúrovňové funkce:
 
-*   `loadJsonFromDocument(documentTitle: string, fileName: string, versionId?: string): Promise<DownloadedJson | null>`
+*   `loadJsonFromDocument(documentTitle: string, fileName: string): Promise<DownloadedJson | null>`
     *   **Účel:** Načte a deserializuje JSON obsah ze zadaného souboru v dokumentu identifikovaném jeho názvem.
     *   **Vstup:**
         *   `documentTitle`: Název 3DEXPERIENCE "Document" objektu.
         *   `fileName`: Název souboru (např. "data.json") v rámci dokumentu.
-        *   `versionId` (volitelný): ID konkrétní verze souboru/dokumentu ke stažení. Pokud není uvedeno, stáhne se nejnovější.
     *   **Výstup:** Promise, která resolvuje na objekt `DownloadedJson` (viz 4.3) obsahující deserializovaná JSON data. V případě, že dokument či soubor neexistuje, nebo soubor neobsahuje validní JSON, bude Promise rejectována s chybou.
 
     *   **Interní kroky (koncepčně, s využitím `DocumentWebServiceHelper`):**
@@ -211,7 +211,7 @@ Tyto datové struktury jsou příklady objektů, které mohou být vráceny z AP
 ### 5.1. Scénář: Načtení JSON dat z dokumentu
 
 1.  **Widget** volá `Utilita.loadJsonFromDocument("MujDokument", "konfigurace.json")`.
-2.  **Utilita (`DYTUtils - Document Extension`)**:
+2.  **Utilita (`DYTJSONManager`)**:
  1.  Volá `DocumentWebServiceHelper.searchDocumentByTitle("MujDokument")` (implementuje `[^FR-007]`).
     2.  `DocumentWebServiceHelper` vrací pole `DocumentInfo` objektů nebo `null`/prázdné pole.
     3.  Pokud `searchDocumentByTitle` vrátí `null`, prázdné pole, nebo dojde k chybě, Utilita rejectuje Promise s chybou "Dokument 'MujDokument' nenalezen". Jinak vezme první nalezený dokument a získá jeho `docId` a `DocumentInfo`.
@@ -224,7 +224,7 @@ Tyto datové struktury jsou příklady objektů, které mohou být vráceny z AP
 ### 5.2. Scénář: Uložení JSON dat do dokumentu
 
 1.  **Widget** volá `Utilita.saveJsonToDocument("MujDokument", "novaKonfigurace.json", { key: "value" })`.
-2.  **Utilita (`DYTUtils - Document Extension`)**:
+2.  **Utilita (`DYTJSONManager`)**:
     1.  Volá `DocumentWebServiceHelper.ensureDocumentExists("MujDokument")` (implementuje `[^FR-001]`, `[^FR-007]`).
     2.  `DocumentWebServiceHelper` vrací `docId`.
     3.  Volá `DocumentWebServiceHelper.lockDocument(docId)` (implementuje `[^FR-004]`).
@@ -239,7 +239,7 @@ Tyto datové struktury jsou příklady objektů, které mohou být vráceny z AP
 ## 6. Zpracování chyb
 -   Utilita bude zachytávat chyby z `DocumentWebServiceHelper` a `Connector3DSpace.js`.
 -   Utilita bude pro chybové objekty primárně využívat (předávat dál) formát chybových objektů poskytovaný knihovnou `Connector3DSpace.js` (přes `DocumentWebServiceHelper`). To zajistí konzistenci v chybovém hlášení.
--   V případě, že dokument nebo soubor není nalezen (např. `DocumentWebServiceHelper` vrátí `null` nebo specifickou chybu pro "not found"), tato utilita (`DYTUtils - Document Extension`) bude rejectovat Promise s konkrétní chybovou zprávou (např. "Dokument '{documentTitle}' nenalezen" nebo "Soubor '{fileName}' v dokumentu '{documentTitle}' nenalezen").
+-   V případě, že dokument nebo soubor není nalezen (např. `DocumentWebServiceHelper` vrátí `null` nebo specifickou chybu pro "not found"), tato utilita (`DYTJSONManager`) bude rejectovat Promise s konkrétní chybovou zprávou (např. "Dokument '{documentTitle}' nenalezen" nebo "Soubor '{fileName}' v dokumentu '{documentTitle}' nenalezen").
 -   V případě vícekrokových operací, pokud dojde k chybě uprostřed procesu, utilita (a `DocumentWebServiceHelper`) se pokusí uvést systém do konzistentního stavu (např. odemknout dokument, pokud byl zamčen).
 
 ## 7. Nefunkční požadavky (pro tuto utilitu)
@@ -257,10 +257,10 @@ Budou dodrženy všechny definované nefunkční požadavky, zejména:
 -   **[ROZHODNUTO] Návrh API a implementace pomocné utility `DYTUtils - DocumentWebServiceHelper`:**
     -   Návrh pro `DYTUtils - DocumentWebServiceHelper` je definován v samostatném dokumentu: `\\3dexpprod\webapps\DYTUtils\webapps\DYTUtils\Docs\navrh_document_webservice_helper.md`.
 -   **[ROZHODNUTO] Jak přesně budou řešeny situace, kdy dokument nebo soubor neexistuje:**
-    -   Pokud `Connector3DSpace.js` nebo `DocumentWebServiceHelper` indikuje, že dokument/soubor nebyl nalezen (např. vrácením `null` nebo prázdného pole), `DYTUtils - Document Extension` bude rejectovat Promise s konkrétní chybovou zprávou (např. "Dokument nenalezen", "Soubor nenalezen").
+    -   Pokud `Connector3DSpace.js` nebo `DocumentWebServiceHelper` indikuje, že dokument/soubor nebyl nalezen (např. vrácením `null` nebo prázdného pole), `DYTJSONManager` bude rejectovat Promise s konkrétní chybovou zprávou (např. "Dokument nenalezen", "Soubor nenalezen").
 -   **[ROZHODNUTO] Ověření detailů implementace jednotlivých `FR-xxx` v rámci `DocumentWebServiceHelper`:**
     -   Pro `FR-004` (zamčení dokumentu) se nepoužívá `reservedComment`.
-    -   `FR-005` (mazání), `FR-006` (odemčení) a `FR-007` (vyhledávání) byly ověřeny a jejich použití v `DYTUtils - Document Extension` (včetně scénáře načítání, který nyní správně používá `searchDocumentByTitle`) je v souladu s návrhem `DocumentWebServiceHelper`.
+    -   `FR-005` (mazání), `FR-006` (odemčení) a `FR-007` (vyhledávání) byly ověřeny a jejich použití v `DYTJSONManager` (včetně scénáře načítání, který nyní správně používá `searchDocumentByTitle`) je v souladu s návrhem `DocumentWebServiceHelper`.
 
 
 ---

@@ -1,0 +1,56 @@
+@startuml SD-006_Create_New_Document
+!theme vibrant
+title UC-006: Vytvoření nového dokumentu - Sekvenční Diagram
+
+participant "callingSvc:CallingService\n(např. UC-010)" as CallingService
+participant "docHelper:DocumentHelper" as DocumentHelper
+participant "connector:Connector3DSpace" as Connector
+
+autonumber "<b>[0]"
+
+CallingService -> DocumentHelper : createDocument(documentTitle, ?description)
+activate DocumentHelper
+
+DocumentHelper -> DocumentHelper : 2. Sestavení payloadu pro vytvoření dokumentu\n<size:10>(title, ?description)</size>
+
+DocumentHelper -> DocumentHelper : 3. Sestavení požadavku (options)\n<size:10>(endpoint: /documents, method: POST)</size>
+
+DocumentHelper -> Connector : 4. callService(options, payload)\n<size:10>(method: POST, csrf: true)</size>
+activate Connector
+Connector --> DocumentHelper : 4.1 createPlatformResponse
+deactivate Connector
+
+alt 7.A Chyba platformy / komunikace
+    DocumentHelper --> CallingService : failure (platform/communication error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 5. Zpracování odpovědi platformy\n<size:10>(extrakce DocumentInfo nového dokumentu)</size>
+
+alt 7.B Neočekávaný formát odpovědi / Chyba při vytváření
+    DocumentHelper --> CallingService : failure (unexpected response or creation error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper --> CallingService : 6. DocumentInfo (nového dokumentu)
+deactivate DocumentHelper
+
+== Poznámky ==
+note over DocumentHelper, Connector
+  Tento diagram zobrazuje interakci na úrovni DocumentHelpera
+  při volání služby pro vytvoření nového dokumentu.
+  Kroky 2, 3 a 5 jsou interní operace DocumentHelpera.
+  Parametr 'description' je volitelný.
+end note
+
+note right of CallingService
+  Datum vytvoření: 2025-05-13
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

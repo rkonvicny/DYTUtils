@@ -1,11 +1,11 @@
 @startuml CD-001_Core_Classes
 !theme vibrant
-title Diagram tříd: DYTUtils - Document Extension & Helper
+title title Diagram tříd: DYTRON JSON Manager & Helper
 
-package "DYTUtils - Document Extension" {
-    ' Orchestrator class for high-level document operations
-    class "DocExtCtrl\n(Orchestrator)" as DocExtCtrl {
-        - _docHelper: DocHelperCtrl
+package "DYTRON JSON Manager" {
+  ' Controller class for high-level JSON document operations
+  class "JsonManagerController" as JsonManagerController {
+    - _docHelper: DocHelperCtrl ' Dependency to the helper
         + loadJsonFromDocument(documentTitle: string, fileName: string, versionId?: string): Promise<DownloadedJson>
         + saveJsonToDocument(documentTitle: string, fileName: string, jsonData: object | string): Promise<FileInfo>
     }
@@ -13,7 +13,7 @@ package "DYTUtils - Document Extension" {
 
 package "DYTUtils - DocumentWebServiceHelper" {
     class "DocHelperCtrl\n(Helper)" as DocHelperCtrl {
-        - _connector: Connector3DSpace
+        - _connector: Connector3DSpace ' Dependency to the 3DX connector
         + ensureDocumentExists(documentTitle: string): Promise<DocumentInfo>
         + searchDocumentByTitle(documentTitle: string): Promise<DocumentInfo[] | null>
         + lockDocument(docId: string): Promise<void>
@@ -51,7 +51,7 @@ class "Connector3DSpace.js" as Connector3DSpace
 }
 
 ' "Has-a" relationships (Aggregation)
-DocExtCtrl o--> DocHelperCtrl : "uses (has-a)"
+JsonManagerController o--> DocHelperCtrl : "uses (has-a)"
 DocHelperCtrl o--> Connector3DSpace : "uses (has-a)"
 
 DownloadedJson o--> FileInfo : "contains (has-a)"
@@ -59,8 +59,8 @@ DownloadedJson o--> DocumentInfo : "contains (has-a)"
 
 
 ' Dependencies (e.g., return types, parameters)
-DocExtCtrl ..> DownloadedJson : "returns / uses type"
-DocExtCtrl ..> FileInfo : "returns / uses type"
+JsonManagerController ..> DownloadedJson : "returns / uses type"
+JsonManagerController ..> FileInfo : "returns / uses type"
 
 DocHelperCtrl ..> DocumentInfo : "returns / uses type"
 DocHelperCtrl ..> FileInfo : "returns / uses type"

@@ -1,0 +1,46 @@
+@startuml RD-014_Download_File_From_FCS
+!theme vibrant
+left to right direction
+
+actor "Volající Služba (např. JsonManager)" as CallingService
+
+package "DocumentHelper" as DocumentHelperModule {
+    control "downloadFileFromFCS" as downloadFromFCSCtrl
+    control "createRequestQuery" as createRequestQueryCtrl 
+    control "processFileDownloadResponse" as processFileDownloadCtrl
+}
+
+package "FCS Connector" {
+    ' Tento balíček může reprezentovat buď upravený Connector3DSpace
+    ' nebo specifickou logiku pro přímé volání FCS.
+    boundary "FCS HTTP Client" as FCSClientBoundary
+}
+
+' Entities are commented out
+' entity "FcsUrl (param)" as FcsUrlParam
+' entity "FileDownloadOptions (data)" as FileDownloadOptionsData
+' entity "FileContentResponse (data)" as FileContentResponseData
+' entity "FileContentAndInfo (result)" as FileContentAndInfoResult
+
+' UC-014 Krok 1: Volající služba volá API
+CallingService -> downloadFromFCSCtrl : 1. downloadFileFromFCS(fcsUrl)
+
+' UC-014 Krok 2: Sestavení požadavku na stažení souboru z FCS
+downloadFromFCSCtrl -> createRequestQueryCtrl : 2. (fcsUrl, type="DownloadFromFCS_Direct")
+createRequestQueryCtrl ..> downloadFromFCSCtrl : 2.1 (FileDownloadOptionsData)
+
+' UC-014 Krok 3: Odeslání požadavku na stažení souboru z FCS serveru a získání odpovědi
+downloadFromFCSCtrl -> FCSClientBoundary : 3. HTTP GET (fcsUrl, FileDownloadOptionsData)
+FCSClientBoundary ..> downloadFromFCSCtrl : 3.1 (FileContentResponseData)
+FCSClientBoundary .[#red].> downloadFromFCSCtrl : 3.1a <color:red>failure (FCS download error - UC014:7.A)</color>
+
+' UC-014 Krok 4: Zpracování FileContentResponse
+downloadFromFCSCtrl -> processFileDownloadCtrl : 4. (FileContentResponseData)
+processFileDownloadCtrl ..> downloadFromFCSCtrl : 4.1 success (FileContentAndInfoResult)
+processFileDownloadCtrl .[#red].> downloadFromFCSCtrl : 4.1a <color:red>failure (processing error - UC014:7.B)</color>
+
+' UC-014 Krok 5: Vrácení odpovědi
+downloadFromFCSCtrl ..> CallingService : 5. (FileContentAndInfoResult)
+downloadFromFCSCtrl .[#red].> CallingService : 5.a <color:red>failure</color> ' Propagate error from any previous critical step
+
+@enduml
