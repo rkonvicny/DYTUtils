@@ -1,0 +1,72 @@
+@startuml SD-010_Ensure_Document_Exists
+!theme vibrant
+title UC-010: Zajištění Existence Dokumentu - Sekvenční Diagram
+
+participant "callingSvc:CallingService\n(např. UC-002)" as CallingService
+participant "docHelper:DocumentHelper" as DocumentHelper
+' Connector není přímo zobrazen, protože UC-003 a UC-006 jsou volány interně
+' a jejich interakce s Connectorem jsou detailně popsány v SD-003 a SD-006.
+
+autonumber "<b>[0]"
+
+CallingService -> DocumentHelper : ensureDocumentExists(documentTitle, documentType)
+activate DocumentHelper
+
+DocumentHelper -> DocumentHelper : 2. searchDocumentByTitle(documentTitle)\n<size:10><< UC-003 >></size>
+activate DocumentHelper
+' Interní volání metody, která implementuje UC-003
+' Výsledek může být {docId, documentInfo} nebo chyba (např. nenalezeno)
+DocumentHelper --> DocumentHelper : 2.1 searchResult
+deactivate DocumentHelper
+
+alt 6.A Chyba při vyhledávání (jiná než "nenalezeno")
+    DocumentHelper --> CallingService : failure (search error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+alt 3. Dokument nalezen
+    DocumentHelper --> CallingService : 3.1 success (docId, documentInfo)
+    deactivate DocumentHelper
+else 4. Dokument nenalezen (searchResult indikuje "not found")
+    DocumentHelper -> DocumentHelper : 4.1 createDocument(documentTitle, documentType)\n<size:10><< UC-006 >></size>
+    activate DocumentHelper
+    ' Interní volání metody, která implementuje UC-006
+    ' Výsledek může být {docId, documentInfo} nebo chyba
+    DocumentHelper --> DocumentHelper : 4.1.1 creationResult
+    deactivate DocumentHelper
+
+    alt 6.B Chyba při vytváření dokumentu
+        DocumentHelper --> CallingService : failure (creation error)
+        deactivate DocumentHelper
+        destroy DocumentHelper
+        return
+    end
+
+    DocumentHelper --> CallingService : 5. success (docId, documentInfo z nově vytvořeného dokumentu)
+    deactivate DocumentHelper
+end
+
+== Poznámky ==
+note over DocumentHelper
+  Tento diagram zobrazuje orchestraci UC-010 v rámci DocumentHelpera.
+  Krok 2 volá interní logiku odpovídající UC-003 (Vyhledání dokumentu).
+  Pokud dokument není nalezen, krok 4.1 volá interní logiku
+  odpovídající UC-006 (Vytvoření nového dokumentu).
+
+  Detaily interakcí UC-003 a UC-006 s Connector3DSpace
+  jsou popsány v jejich příslušných sekvenčních diagramech
+  (SD-003 a SD-006).
+
+  Případné chyby z UC-003 (jiné než "nenalezeno") nebo z UC-006
+  jsou propagovány volající službě.
+end note
+
+note right of CallingService
+  Datum vytvoření: 2025-05-14
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

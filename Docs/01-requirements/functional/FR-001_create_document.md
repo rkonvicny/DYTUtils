@@ -9,17 +9,17 @@
 Zajištění existence/Vytvoření nového 3DEXPERIENCE "Document" objektu
 
 **1. Popis Aktéra/Uživatele:**
-   - Utilita `DYTUtils - Document Extension` (která volá funkce z `DYTUtils - DocumentWebServiceHelper`)
+   - Utilita `DYTJSONManager` (která volá funkce z `DocumentWebServiceHelper`)
 
 **2. Cíl/Potřeba Aktéra:**
    - Widget potřebuje zajistit existenci "Document" objektu se specifickým titulkem v 3DEXPERIENCE pro následné ukládání JSON souborů (např. konfigurací, malých datových sad). Pokud dokument neexistuje, má být vytvořen.
 
 **3. Popis Funkcionality:**
-   - Utilita `DYTUtils - DocumentWebServiceHelper` poskytne funkci, která nejprve ověří existenci "Document" objektu se zadaným titulkem. Pokud dokument neexistuje, vytvoří nový. Pokud existuje, vrátí informace o existujícím dokumentu.
+   - Utilita `DocumentWebServiceHelper` poskytne funkci, která nejprve ověří existenci "Document" objektu se zadaným titulkem. Pokud dokument neexistuje, vytvoří nový. Pokud existuje, vrátí informace o existujícím dokumentu.
    - **Vstupní podmínky/Data:**
      - Titulek ("title") pro "Document" objekt (povinné).
    - **Hlavní scénář (Kroky):**
-     1. Utilita `DYTUtils - DocumentWebServiceHelper` přijme požadavek na zajištění existence "Document" objektu se zadaným titulkem.
+     1. Utilita `DocumentWebServiceHelper` přijme požadavek na zajištění existence "Document" objektu se zadaným titulkem.
      2. Utilita interně zavolá funkci odpovídající požadavku `FR-007` (Vyhledání "Document" objektů) s použitím zadaného titulku jako `searchString`.
      3. **Pokud je nalezen jeden nebo více dokumentů s odpovídajícím titulkem:**
         a. Utilita vrátí identifikátor (`id`) a metadata prvního nalezeného dokumentu. (Strategie pro výběr v případě více shod bude definována v `FR-007`, pro účely této funkce se použije první nalezený).

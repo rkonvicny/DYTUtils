@@ -1,0 +1,57 @@
+@startuml SD-007_Reserve_Document
+!theme vibrant
+title UC-007: Zamčení Dokumentu (Reserve) - Sekvenční Diagram
+
+participant "callingSvc:CallingService\n(např. UC-002)" as CallingService
+participant "docHelper:DocumentHelper" as DocumentHelper
+participant "connector:Connector3DSpace" as Connector
+
+autonumber "<b>[0]"
+
+CallingService -> DocumentHelper : reserveDocument(docId)
+activate DocumentHelper
+
+DocumentHelper -> DocumentHelper : 2. Sestavení požadavku (options)\n<size:10>(endpoint: /documents/{docId}/reserve, method: PUT)</size>
+
+DocumentHelper -> Connector : 3. callService(options)\n<size:10>(method: PUT, csrf: true)</size>
+activate Connector
+Connector --> DocumentHelper : 3.1 reservePlatformResponse
+deactivate Connector
+
+alt 6.A Chyba platformy / komunikace
+    DocumentHelper --> CallingService : failure (platform/communication error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 4. Zpracování odpovědi platformy\n<size:10>(kontrola úspěšnosti zamčení)</size>
+
+alt 6.B Dokument neexistuje / Nelze zamknout / Již zamčen jiným uživatelem
+    DocumentHelper --> CallingService : failure (document not found or cannot be reserved)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper --> CallingService : 5. success (document reserved)
+deactivate DocumentHelper
+
+== Poznámky ==
+note over DocumentHelper, Connector
+  Tento diagram zobrazuje interakci na úrovni DocumentHelpera
+  při volání služby pro zamčení dokumentu.
+  Kroky 2 a 4 jsou interní operace DocumentHelpera.
+  Endpoint pro zamčení dokumentu je:
+  PUT /resources/v1/modeler/documents/{docId}/reserve
+  (v diagramu zjednodušeno na /documents/{docId}/reserve
+  pro lepší čitelnost, přesný endpoint je v UC-007.md)
+end note
+
+note right of CallingService
+  Datum vytvoření: 2025-05-14
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

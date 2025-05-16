@@ -9,20 +9,20 @@
 Nahrání JSON souboru do "Document" objektu
 
 **1. Popis Aktéra/Uživatele:**
-   - Utilita `DYTUtils - Document Extension` (která volá funkce z `DYTUtils - DocumentWebServiceHelper`)
+   - Utilita `DYTJSONManager` (která volá funkce z `DocumentWebServiceHelper`)
 
 **2. Cíl/Potřeba Aktéra:**
    - Aktér potřebuje nahrát obsah JSON jako soubor do specifikovaného a již zamčeného "Document" objektu v 3DEXPERIENCE.
 
 **3. Popis Funkcionality:**
-   - Utilita `DYTUtils - DocumentWebServiceHelper` poskytne funkci, která zajistí nahrání JSON dat jako souboru (přílohy) k zadanému a již zamčenému "Document" objektu.
+   - Utilita `DocumentWebServiceHelper` poskytne funkci, která zajistí nahrání JSON dat jako souboru (přílohy) k zadanému a již zamčenému "Document" objektu.
    - **Vstupní podmínky/Data:**
      - Identifikátor "Document" objektu (`docId`), ke kterému se má soubor přiložit.
      - Obsah souboru jako řetězec (`fileContent`, např. serializovaný JSON).
      - Název pro ukládaný JSON soubor (`fileName`, např. `gridSettings.json`).
      - Typ obsahu (`contentType`, např. "application/json").
    - **Hlavní scénář (Kroky):**
-     1. Utilita `DYTUtils - DocumentWebServiceHelper` přijme požadavek na nahrání souboru.
+     1. Utilita `DocumentWebServiceHelper` přijme požadavek na nahrání souboru.
      2. **Získání Check-in Ticketu:** Utilita (nebo `Connector3DSpace.js`) zavolá `PUT /resources/v1/modeler/documents/{docId}/files/CheckinTicket`.
         - Vstup: `docId`.
         - Výstup: `ticketURL`, `ticketparamname`, `ticket`.
@@ -67,5 +67,5 @@ Nahrání JSON souboru do "Document" objektu
    - [POZNÁMKA] Tento FR popisuje pouze nahrání souboru. Logika pro "nahrazení" (tj. smazání existujícího souboru před nahráním nového) je řešena volající stranou (např. v `DYTUtils - Document Extension` s využitím `FR-005`).
    - [ROZHODNUTO] Formát souboru: Bude použit "application/json" (předáno jako `contentType`).
    - [POZNÁMKA] Zamčení/odemčení dokumentu není součástí tohoto FR; předpokládá se, že dokument je již zamčen.
-   - [POZNÁMKA] Tato funkcionalita bude primárně implementována v rámci modulu `DYTUtils - DocumentWebServiceHelper`.
+   - [POZNÁMKA] Tato funkcionalita bude primárně implementována v rámci modulu `DocumentWebServiceHelper`.
    - [ROZHODNUTO] Komentáře k souborům: V této verzi se nebudou komentáře k souborům předávat platformě 3DEXPERIENCE během nahrávání.

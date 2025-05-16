@@ -1,0 +1,77 @@
+@startuml SD-016_Complete_File_Upload_To_Document
+!theme vibrant
+title UC-016: Kompletní Nahrání Souboru do Dokumentu - Sekvenční Diagram
+
+participant "callingSvc:CallingService\n(např. UC-002)" as CallingService
+participant "docHelper:DocumentHelper" as DocumentHelper
+' Connector není přímo zobrazen, protože volané UC (005, 011, 017)
+' mají své interakce s Connectorem detailně popsány ve svých SD.
+
+autonumber "<b>[0]"
+
+CallingService -> DocumentHelper : uploadFileToDocument(docId, fileName, fileContent, contentType)
+activate DocumentHelper
+
+DocumentHelper -> DocumentHelper : 2. getUploadTicketForFile(fileName)\n<size:10><< UC-005 >></size>
+activate DocumentHelper
+DocumentHelper --> DocumentHelper : 2.1 ticketResult (fcsUploadUrl, fileReceipt)
+deactivate DocumentHelper
+
+alt 7.A Chyba při získávání upload ticketu
+    DocumentHelper --> CallingService : failure (get upload ticket error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 3. uploadFileContentToFCS(fcsUploadUrl, fileContent, contentType)\n<size:10><< UC-011 >></size>
+activate DocumentHelper
+DocumentHelper --> DocumentHelper : 3.1 uploadToFCSResult (success/failure)
+deactivate DocumentHelper
+
+alt 7.B Chyba při nahrávání souboru na FCS
+    DocumentHelper --> CallingService : failure (FCS upload error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 4. attachFileToDocument(docId, fileName, fileReceipt, contentType)\n<size:10><< UC-017 >></size>
+activate DocumentHelper
+DocumentHelper --> DocumentHelper : 4.1 attachResult (fileInfo)
+deactivate DocumentHelper
+
+alt 7.C Chyba při připojování souboru k dokumentu
+    DocumentHelper --> CallingService : failure (attach file error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 5. Zpracování výsledku (pokud je třeba)
+
+DocumentHelper --> CallingService : 6. success (fileInfo)
+deactivate DocumentHelper
+
+== Poznámky ==
+note over DocumentHelper
+  Tento diagram zobrazuje orchestraci UC-016 v rámci DocumentHelpera.
+  Krok 2 volá interní logiku odpovídající UC-005 (Získání Upload Ticketu).
+  Krok 3 volá interní logiku odpovídající UC-011 (Nahrání Obsahu Souboru na FCS).
+  Krok 4 volá interní logiku odpovídající UC-017 (Připojení Souboru k Dokumentu).
+
+  Detaily interakcí UC-005, UC-011 a UC-017 s Connector3DSpace
+  jsou popsány v jejich příslušných sekvenčních diagramech
+  (SD-005, SD-011, SD-017).
+
+  Parametry jako `docId`, `fileName`, `fileContent`, `contentType` jsou
+  předávány do `DocumentHelper.uploadFileToDocument`.
+end note
+
+note right of CallingService
+  Datum vytvoření: 2025-05-14
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

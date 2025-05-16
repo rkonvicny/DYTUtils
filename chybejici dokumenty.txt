@@ -1,0 +1,21 @@
+Jasně, tady jsou odkazy na dokumenty, které jsi zmínil, že by mohly být užitečné, a které jsem identifikoval jako potenciálně chybějící z tvého původního seznamu. Použil jsem šablonu URL, kterou jsi mi poskytl:
+
+Use Cases (Příklady použití):
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAWebAppsJS/CAAWebAppsTaWidgetNLS.htm
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAWebAppsJS/CAAWebAppsUcNLS.htm (odkazováno z "Widget Internationalization") – Týká se internacionalizace widgetů.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAWebAppsJS/CAAWebAppsUcUserPreferences.htm (odkazováno z "User Preferences" a "Consuming 3DSpace Web Service") – Týká se používání uživatelských preferencí.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAWebAppsJS/CAAWebAppsUcDynamicPreference.htm (odkazováno z "User Preferences", "About Service URL and Platform Instance" a "Consuming 3DSwym Web Services Interactively") – Týká se dynamického vytváření uživatelských preferencí.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAWebAppsJSWidget/CAAWebAppsUcOperationApp.htm (odkazováno z mnoha dokumentů, např. "Widget DOM Elements", "AMD Concepts", "Consuming 3DSwym Web Services Interactively") – Týká se definování a používání AMD modulů.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAWebAppsJSBetweenWdg/CAAWebAppsUcInterWidgetCom.htm (odkazováno z "Widget Communication") – Týká se komunikace mezi widgety.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAWebAppsJSBetweenWdg/CAAWebAppsUcDragDrop.htm (odkazováno z "HTML5 Drag and Drop Protocol") – Týká se implementace Drag & Drop.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAWebAppsJSGuides/CAAWebAppsUcLaunchAppli.htm (odkazováno z "Launching Applications from Widget") – Týká se spouštění aplikací z widgetu.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAASwymInfraREST/CAA3DSwymUcBinaryWidget.htm (odkazováno z "Consuming 3DSwym Web Services Interactively") – Týká se zobrazování obrázků a stahování médií přes 3DSwym.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAi3DXPnOWS/CAAi3DXPnOWSUcWidgetSC.htm (odkazováno z "Consuming 3DSpace Web Service") – Týká se práce s přihlašovacími údaji (credentials) ve widgetu.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAWebAppsJSRoot/CAAWebAppsUcHelloWorld.htm (odkazováno z "JavaScript Naming Guide") – Základní "Getting Started" příklad.
+Technické články:
+
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAWebAppsJSRoot/CAAWebAppsJSTaOverview.htm (odkazováno z "Implementing 6WTagger Filtering" a "Implementing Service Side Filtering") – Přehled o aplikacích 3DEXPERIENCE.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAASwymInfraREST/CAA3DSwymTaAboutV2WS.htm (odkazováno z "About Widget and HTTP Request" a "Consuming 3DSwym Web Services Interactively") – Informace o webových službách 3DSwym.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAAiamPassport/CAAiamPassportCASProtocol.htm (odkazováno z "About Widget and HTTP Request") – Informace o 3DPassport a CAS protokolu.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAA3DSpaceREST/CAAi3DXTa3DSpaceWService.htm (odkazováno z "Consuming 3DSpace Web Service") – Informace o webových službách 3DSpace.
+https://media.3ds.com/support/documentation/developer/R2021x/en/DSDoc.htm?show=CAACppTechArticles/CAADocCppNamingRules.htm (odkazováno z "JavaScript Naming Guide") – Pravidla pro pojmenování v C++ (pro JavaScript má nižší prioritu, ale byl odkazován).
