@@ -1,0 +1,84 @@
+@startuml FunctionCallGraph_DocumentWebServiceHelper
+!theme vibrant
+title Function Call Graph: DocumentWebServiceHelper
+
+package "DocumentWebServiceHelper Internal" {
+    component getDocumentDetailsById
+    component searchDocumentByTitle
+    component createNewDocument
+    component downloadFileContentByName
+    component getDocumentFilesMetadata
+    component reserveDocument
+    component unreserveDocument
+    
+    ' Pomocné metody (volané pouze interně v DocumentWebServiceHelper)
+    component _getPhysicalFileIdByName <<helper>>
+    component _getDownloadTicket <<helper>>
+    component _downloadFileFromFCS <<helper>>
+    component _blobToString <<helper>>
+    component _deleteFileById <<helper>>
+}
+
+package "DYTJSONManager Internal" {
+    component saveJsonToDocument
+    component loadJsonFromDocument
+}
+
+package "External Dependencies" {
+    component Connector3DSpace_callService [
+    Connector3DSpace
+    .callService()
+    ]
+    component Connector3DSpace_proxyCall [
+    Connector3DSpace
+    .proxyCall()
+    ]
+}
+
+' --- Volání z veřejných metod na jiné interní metody ---
+searchDocumentByTitle --> getDocumentDetailsById : calls
+createNewDocument --> searchDocumentByTitle : calls
+downloadFileContentByName --> _getPhysicalFileIdByName : calls
+downloadFileContentByName --> _getDownloadTicket : calls
+downloadFileContentByName --> _downloadFileFromFCS : calls ' Nové volání
+downloadFileContentByName --> _blobToString : calls
+
+
+
+saveJsonToDocument --> searchDocumentByTitle : calls
+saveJsonToDocument --> createNewDocument : calls
+saveJsonToDocument --> reserveDocument : calls
+' saveJsonToDocument --> getDocumentFilesMetadata : calls
+saveJsonToDocument --> _getPhysicalFileIdByName : calls ' Volá pomocnou metodu
+
+saveJsonToDocument --> _deleteFileById : calls
+saveJsonToDocument --> unreserveDocument : calls
+
+loadJsonFromDocument --> searchDocumentByTitle : calls
+loadJsonFromDocument --> downloadFileContentByName : calls
+
+' --- Volání z pomocných metod na jiné interní metody ---
+_getPhysicalFileIdByName --> getDocumentDetailsById : calls
+
+' --- Volání na externí závislosti (Connector3DSpace) ---
+getDocumentDetailsById --> Connector3DSpace_callService : uses
+' searchDocumentByTitle volá getDocumentDetailsById, které volá Connector3DSpace_callService
+' createNewDocument volá searchDocumentByTitle, které volá getDocumentDetailsById, které volá Connector3DSpace_callService
+
+searchDocumentByTitle --> Connector3DSpace_callService : uses (for initial search)
+createNewDocument --> Connector3DSpace_callService : uses (for POST to create)
+_getDownloadTicket --> Connector3DSpace_callService : uses
+
+getDocumentFilesMetadata --> Connector3DSpace_callService : uses
+reserveDocument --> Connector3DSpace_callService : uses
+unreserveDocument --> Connector3DSpace_callService : uses
+_deleteFileById --> Connector3DSpace_callService : uses
+
+' _getPhysicalFileIdByName volá getDocumentDetailsById, které volá Connector3DSpace_callService
+
+_downloadFileFromFCS --> Connector3DSpace_proxyCall : uses
+
+' --- Poznámky ---
+note "Všechny metody také volají `logger.log()`, což je zde pro přehlednost vynecháno." as LoggingNote
+
+@enduml

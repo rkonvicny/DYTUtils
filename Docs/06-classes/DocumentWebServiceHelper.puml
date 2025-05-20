@@ -1,0 +1,95 @@
+@startuml DocumentWebServiceHelper_ClassDiagram
+!theme vibrant
+title Class Diagram: DocumentWebServiceHelper
+
+package "DS.DYTUtils" {
+
+    class DocumentWebServiceHelper {
+        + getDocumentDetailsById(docId: string): Promise<Object>
+        + searchDocumentByTitle(documentTitle: string): Promise<Object[]>
+        + createNewDocument(documentTitle: string): Promise<Object>
+        + downloadFileContentByName(docId: string, filename: string): Promise<string>
+        + getDocumentFilesMetadata(docId: string): Promise<Object[]>
+        + reserveDocument(docId: string): Promise<Object>
+        + unreserveDocument(docId: string): Promise<Object>
+        --
+        # _getPhysicalFileIdByName(docId: string, filename: string): Promise<string>
+        # _getDownloadTicket(docId: string, physicalFileId: string): Promise<string>
+        # _downloadFileFromFCS(fcsDownloadUrl: string): Promise<Blob>
+        # _blobToString(blob: Blob): Promise<string>
+    }
+    class DYTJSONManager {
+        + saveJsonToDocument(documentTitle: string, jsonFilename: string, jsonDataObject: Object): Promise<Object>
+        + loadJsonFromDocument(documentTitle: string, jsonFilename: string): Promise<Object>
+    }
+    class Connector3DSpace {
+        + callService(options: Object, withCSRF: boolean): Promise<Object>
+        + proxyCall(options: Object, withContext: boolean): Promise<Object>
+        .. more methods ..
+    }
+
+    class DYTLogger {
+        + log(level: number, message: string, ...details: any): void
+        .. more methods ..
+    }
+
+}
+
+DYTJSONManager *-- DocumentWebServiceHelper : uses
+DocumentWebServiceHelper *-- Connector3DSpace : uses
+DocumentWebServiceHelper *-- DYTLogger : uses
+
+note right of DocumentWebServiceHelper::getDocumentDetailsById
+Fetches full details of a document by its ID.
+end note
+
+note right of DocumentWebServiceHelper::searchDocumentByTitle
+Searches for a document by title and then
+fetches full details of the first match.
+end note
+
+note right of DocumentWebServiceHelper::createNewDocument
+Creates a new document, checking for
+existence by title first.
+end note
+
+note right of DocumentWebServiceHelper::downloadFileContentByName
+Orchestrates downloading a file's content by its name
+within a specific document. Involves getting physical ID,
+download ticket, and then fetching from FCS.
+end note
+
+note right of DocumentWebServiceHelper::_getPhysicalFileIdByName
+Helper to find a file's physical ID
+based on its name within a document.
+end note
+
+note right of DocumentWebServiceHelper::_getDownloadTicket
+Helper to obtain a download ticket
+for a given physical file ID.
+end note
+
+note right of DocumentWebServiceHelper::_downloadFileFromFCS
+Helper to download the file content (as Blob)
+from an FCS URL.
+end note
+
+note right of DocumentWebServiceHelper::_blobToString
+Helper to convert a Blob object
+to a string.
+end note
+
+note right of DYTJSONManager::saveJsonToDocument
+  Orchestrates saving JSON data to a file in a document.
+  Ensures document existence, locks it, deletes
+  existing files, uploads the new file (placeholder),
+  and unlocks. Uses DocumentWebServiceHelper methods.
+end note
+
+note right of DYTJSONManager::loadJsonFromDocument
+  Loads and parses JSON data from a specified file
+  within a document found by its title.
+  Uses DocumentWebServiceHelper.searchDocumentByTitle and DocumentWebServiceHelper.downloadFileContentByName.
+end note
+
+@enduml

@@ -1,13 +1,19 @@
-define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", "DS/DYTUtils/DYTLogger"], (
+define("DS/DYTUtils/DocumentWebServiceHelper", [
+  "DS/DYTUtils/Connector3DSpace",
+  "DS/DYTUtils/DYTLogger", // Může být stále potřeba pro specifické logy mimo wrapper
+  "DS/DYTUtils/FunctionWrapper"  // Importujeme náš nový wrapper
+], (
   Connector3DSpace,
-  logger
+  logger, // Instance loggeru, pokud ji stále někde potřebujeme (např. pro logErrorObject)
+  wrapMethod // Naše funkce pro obalení
 ) => {
   "use strict"; // Je dobré ponechat pro lepší kontrolu chyb
 
-  const module = {
+  const moduleName = "DocumentWebServiceHelper"; // Název modulu pro logování
+
+  const originalMethods = {
     // Nová metoda pro získání detailů dokumentu podle ID
     getDocumentDetailsById: async function (docId) {
-      logger.log(-1, `DocumentWebServiceHelper.getDocumentDetailsById: Fetching details for doc ID "${docId}"`);
       const options = {
         url: `/resources/v1/modeler/documents/${docId}?$fields=all&$include=all`, // Získání všech detailů včetně souborů
         method: "GET",
@@ -18,27 +24,18 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
 
         // Odpověď pro /documents/{docId} by měla vracet jeden objekt dokumentu v response.dataResp.data[0]
         if (response.dataResp && response.dataResp.data && response.dataResp.data.length > 0) {
-          logger.log(-1, `DocumentWebServiceHelper.getDocumentDetailsById: Details fetched for doc ID "${docId}"`);
           return response.dataResp.data[0]; // Vracíme objekt dokumentu
         }
-        logger.log(
-          1, // Chyba, pokud dokument s daným ID nebyl nalezen nebo odpověď je neplatná
-          `DocumentWebServiceHelper.getDocumentDetailsById: Document with ID "${docId}" not found or invalid response.`
-        );
-        return null;
+        // Pokud dokument není nalezen nebo odpověď je neplatná, vyhodíme chybu
+        throw new Error(`Document with ID "${docId}" not found or invalid response.`);
       } catch (error) {
-        logger.log(
-          1,
-          `DocumentWebServiceHelper.getDocumentDetailsById: Error fetching details for doc ID "${docId}"`,
-          error
-        );
         throw error;
       }
     },
 
     // Upravená metoda searchDocumentByTitle, která nyní provede 2 kroky
     searchDocumentByTitle: async function (documentTitle) {
-      logger.log(-1, `DocumentWebServiceHelper.searchDocumentByTitle: Searching for title "${documentTitle}"`);
+      // Původní logy jsou odstraněny
       const options = {
         url: `/resources/v1/modeler/documents/search?searchStr=${encodeURIComponent(documentTitle)}&nresults=1`, // První krok: najít dokument podle názvu (bez $include=files)
         method: "GET",
@@ -51,36 +48,18 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
 
         if (response.dataResp && response.dataResp.data && response.dataResp.data.length > 0) {
           const firstFoundDocStub = response.dataResp.data[0]; // Získáme základní info (stub)
-          logger.log(
-            -1,
-            `DocumentWebServiceHelper.searchDocumentByTitle: Document stub found: ${firstFoundDocStub.id}. Fetching details...`
-          );
           // Druhý krok: zavoláme novou metodu pro získání plných detailů včetně souborů
           const detailedDoc = await this.getDocumentDetailsById(firstFoundDocStub.id);
           // Vracíme pole s jedním detailním dokumentem, aby volající kód mohl stále očekávat pole
           return detailedDoc ? [detailedDoc] : [];
         }
-        logger.log(
-          -1,
-          `DocumentWebServiceHelper.searchDocumentByTitle: Document with title "${documentTitle}" not found.`
-        );
         return []; // Vracíme prázdné pole, pokud dokument nebyl nalezen
       } catch (error) {
-        logger.log(
-          1,
-          `DocumentWebServiceHelper.searchDocumentByTitle: Error searching for document "${documentTitle}"`,
-          error
-        );
         throw error;
       }
     },
     createNewDocument: async function (documentTitle) {
-      logger.log(-1, `DocumentWebServiceHelper.createNewDocument: Creating new document "${documentTitle}"`);
       // Krok 1: Zkontrolovat, zda dokument s tímto názvem již neexistuje
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper.createNewDocument: Checking if document with title "${documentTitle}" already exists...`
-      );
       const existingDocuments = await this.searchDocumentByTitle(documentTitle); // Použijeme this pro volání jiné metody modulu
 
       if (existingDocuments && existingDocuments.length > 0) {
@@ -88,10 +67,6 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
         logger.log(1, `DocumentWebServiceHelper.createNewDocument: ${errorMsg}`);
         throw new Error(errorMsg); // Vyhodíme chybu, kterou zachytí volající kód
       }
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper.createNewDocument: Document with title "${documentTitle}" does not exist. Proceeding with creation.`
-      );
 
       const docDetails = {
         data: [
@@ -112,27 +87,14 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
 
       try {
         const response = await Connector3DSpace.callService(options, true); // true pro CSRF token
-        logger.log(
-          -1,
-          `DocumentWebServiceHelper.createNewDocument: Document created successfully. Response: ${JSON.stringify(
-            response,
-            null,
-            2
-          )}`
-        );
         return response.dataResp.data[0]; // Vracíme vytvořený dokument
       } catch (error) {
-        logger.log(1, `DocumentWebServiceHelper.createNewDocument: Error creating document "${documentTitle}"`, error);
         throw error;
       }
     },
 
     // Nová pomocná metoda: Získání fyzického ID souboru podle názvu
     _getPhysicalFileIdByName: async function (docId, filename) {
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper._getPhysicalFileIdByName: Finding physical ID for file "${filename}" in doc ID "${docId}"`
-      );
       // Krok 0: Získání detailů dokumentu pro nalezení fyzického ID souboru podle jeho názvu
       const detailedDoc = await this.getDocumentDetailsById(docId);
       if (!detailedDoc || !detailedDoc.relateddata || !detailedDoc.relateddata.files) {
@@ -148,11 +110,8 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
 
       if (!targetFileObject) {
         const errorMsg = `File named "${filename}" not found in document ID "${docId}".`;
-        logger.log(
-          -1, // Změna úrovně logu, protože to nemusí být nutně chyba, ale očekávaný stav
-          `DocumentWebServiceHelper._getPhysicalFileIdByName: ${errorMsg} Returning null.`
-        );
-        return null;
+        // Pokud soubor není nalezen, je to pro tuto operaci chyba
+        throw new Error(errorMsg);
       }
 
       // Předpokládáme, že 'id' je vlastnost obsahující fyzické ID souboru.
@@ -162,22 +121,13 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
         const errorMsg = `Physical ID not found for file named "${filename}" in document ID "${docId}". File object: ${JSON.stringify(
           targetFileObject
         )}`;
-        logger.log(1, `DocumentWebServiceHelper._getPhysicalFileIdByName: ${errorMsg}`);
         throw new Error(errorMsg);
       }
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper._getPhysicalFileIdByName: Found physical file ID "${physicalFileId}" for filename "${filename}".`
-      );
       return physicalFileId;
     },
 
     // Nová pomocná metoda: Získání upload ticketu (UC-015)
     _getCheckinTicket: async function (docId, filename) {
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper._getUploadTicket: Getting upload ticket for file "${filename}" in doc ID "${docId}" (UC-015)`
-      );
       const ticketOptions = {
         url: `/resources/v1/modeler/documents/${docId}/files/CheckinTicket`,
         method: "PUT",
@@ -198,18 +148,12 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
         const errorMsg = `Could not get upload ticket for file "${filename}" in document "${docId}". Response: ${JSON.stringify(
           ticketResponse.dataResp
         )}`;
-        logger.log(1, `DocumentWebServiceHelper._getUploadTicket: ${errorMsg}`);
         throw new Error(errorMsg);
       }
       return ticketResponse.dataResp.data[0]; // Vracíme objekt s ticketem (obsahuje ticketURL, objectId, etc.)
     },
-
     // Nová pomocná metoda: Získání download ticketu
     _getDownloadTicket: async function (docId, physicalFileId) {
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper._getDownloadTicket: Getting download ticket for physical file ID "${physicalFileId}" in doc ID "${docId}"`
-      );
       const ticketOptions = {
         url: `/resources/v1/modeler/documents/${docId}/files/${physicalFileId}/DownloadTicket`,
         method: "PUT",
@@ -225,7 +169,6 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
         const errorMsg = `Could not get download ticket for physical file ID "${physicalFileId}" in document "${docId}". Response: ${JSON.stringify(
           ticketResponse.dataResp
         )}`;
-        logger.log(1, `DocumentWebServiceHelper._getDownloadTicket: ${errorMsg}`);
         throw new Error(errorMsg);
       }
       return ticketResponse.dataResp.data[0].dataelements.ticketURL;
@@ -234,50 +177,26 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
     // Metoda downloadFileContentByName zůstává nezměněna
     downloadFileContentByName: async function (docId, filename) {
       // Změna parametru z fileId na filename
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper.downloadFileContentByName: Downloading content of file named "${filename}" from doc ID "${docId}"`
-      );
       try {
         // Krok 1: Získání fyzického ID
         const physicalFileId = await this._getPhysicalFileIdByName(docId, filename);
 
         // Krok 2: Získání download ticketu
         const fcsDownloadUrl = await this._getDownloadTicket(docId, physicalFileId);
-        logger.log(
-          -1,
-          `DocumentWebServiceHelper.downloadFileContentByName: FCS Download URL received for "${filename}": ${fcsDownloadUrl}`
-        );
 
         // Krok 2: Stažení souboru z FCS (nahrazeno voláním pomocné funkce)
         const fileBlob = await this._downloadFileFromFCS(fcsDownloadUrl);
-        // Logování, že Blob byl přijat, je již v _downloadFileFromFCS,
-        // ale pro konzistenci s původním chováním a logováním v této funkci ho zde můžeme ponechat.
-        logger.log(-1, `DocumentWebServiceHelper.downloadFileContentByName: File Blob received for "${filename}".`);
 
         // Krok 3: Převedení Blob na text
         const fileContentString = await this._blobToString(fileBlob);
-        logger.log(
-          -1,
-          `DocumentWebServiceHelper.downloadFileContentByName: File content converted to string for "${filename}".`
-        );
         return fileContentString;
       } catch (error) {
-        logger.log(
-          1,
-          `DocumentWebServiceHelper.downloadFileContentByName: Error downloading content of file named "${filename}" from doc ID "${docId}"`,
-          error
-        );
         throw error;
       }
     },
 
     // Nová pomocná metoda: Nahrání souboru na FCS (UC-016)
     _uploadFileToFCS: async function (checkinTicket, filename, jsonDataObject) {
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper._uploadFileToFCS: Uploading to FCS URL: ${checkinTicket.ticketURL} (UC-016)`
-      );
       const jsonString = JSON.stringify(jsonDataObject, null, 2);
       const fileBlob = new Blob([jsonString], { type: "application/json" });
       let fileInfoObject = {
@@ -294,18 +213,11 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
       // FCS volání jsou typicky přes proxy a nepotřebují 3DSpace kontext v hlavičce
       // const uploadResponse = await Connector3DSpace.call3DSpace(uploadOptions); // false pro withContext
       let fetchResult = await fetch(checkinTicket.dataelements.ticketURL, uploadOptions);
+      if (!fetchResult.ok) {
+        throw new Error(`FCS upload failed: ${fetchResult.status} ${fetchResult.statusText}`);
+      }
       const uploadResponse = await fetchResult.text();
-      // Úspěšná odpověď z FCS se může lišit, často je to 200 OK nebo 204 No Content.
-      // Zde předpokládáme, že úspěch znamená, že volání proběhlo bez vyhození chyby.
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper._uploadFileToFCS: File uploaded to FCS successfully. Response: ${JSON.stringify(
-          uploadResponse,
-          null,
-          2
-        )}`
-      );
-      return uploadResponse.dataResp; // Může obsahovat metadata z FCS
+      return uploadResponse; // Vracíme textovou odpověď z FCS
     },
 
     // Nová pomocná metoda: Stažení souboru z FCS (vrací Blob)
@@ -324,23 +236,15 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
         logger.log(1, `DocumentWebServiceHelper._downloadFileFromFCS: ${errorMsg}`);
         throw new Error(errorMsg);
       }
-      logger.log(-1, `DocumentWebServiceHelper._downloadFileFromFCS: File Blob received.`);
       return fileDataResponse.dataResp;
     },
 
     // Nová pomocná metoda: Převod Blob na text
     _blobToString: async function (blob) {
-      logger.log(-1, `DocumentWebServiceHelper._blobToString: Converting Blob to string.`);
       try {
         const fileContentString = await blob.text();
-        logger.log(-1, `DocumentWebServiceHelper._blobToString: Blob successfully converted to string.`);
         return fileContentString;
       } catch (error) {
-        logger.log(
-          1,
-          `DocumentWebServiceHelper.downloadFileContentByName: Error downloading content of file named "${filename}" from doc ID "${docId}"`,
-          error
-        );
         throw error;
       }
     },
@@ -354,34 +258,20 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
      * @returns {Promise<Object>} Metadata nahraného souboru nebo výsledek operace.
      */
     uploadFile: async function (docId, filename, jsonDataObject) {
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper.uploadFile: Starting upload process for file "${filename}" to doc ID "${docId}"`
-      );
       try {
         // Krok 1: Získání upload ticketu
         const checkinTicket = await this._getCheckinTicket(docId, filename);
-        const fcsUploadUrl = checkinTicket.dataelements.ticketURL;
-        logger.log(-1, `DocumentWebServiceHelper.uploadFile: Received FCS Upload URL: ${fcsUploadUrl}`);
-        // Krok 2: Získání receipt
 
         // Krok 2: Nahrání souboru na FCS
         const uploadResult = await this._uploadFileToFCS(checkinTicket, filename, jsonDataObject);
-        logger.log(-1, `DocumentWebServiceHelper.uploadFile: File "${filename}" uploaded to FCS.`);
         return checkinTicket; // Vracíme ticket, který obsahuje objectId (ID souboru) a další info
       } catch (error) {
-        logger.log(
-          1,
-          `DocumentWebServiceHelper.uploadFile: Error uploading file "${filename}" to doc ID "${docId}"`,
-          error
-        );
         throw error;
       }
     },
 
     // Nová metoda pro získání metadat souborů dokumentu podle ID (odpovídá UC-013)
     getDocumentFilesMetadata: async function (docId) {
-      logger.log(-1, `DocumentWebServiceHelper.getDocumentFilesMetadata: Fetching file metadata for doc ID "${docId}"`);
       const options = {
         url: `/resources/v1/modeler/documents/${docId}/files`, // Endpoint specified by UC-013
         method: "GET",
@@ -392,30 +282,14 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
 
         // Odpověď pro /documents/{docId}/files by měla vracet pole objektů souborů v response.dataResp.data
         if (response.dataResp && response.dataResp.data && Array.isArray(response.dataResp.data)) {
-          logger.log(
-            -1,
-            `DocumentWebServiceHelper.getDocumentFilesMetadata: File metadata fetched for doc ID "${docId}". Found ${response.dataResp.data.length} files.`
-          );
           return response.dataResp.data; // Vracíme pole objektů souborů
         }
-        logger.log(
-          1, // Chyba, pokud odpověď není platná nebo neobsahuje pole dat
-          `DocumentWebServiceHelper.getDocumentFilesMetadata: Invalid response fetching file metadata for doc ID "${docId}". Response: ${JSON.stringify(
-            response.dataResp
-          )}`
-        );
-        return []; // Vracíme prázdné pole v případě neplatné odpovědi nebo absence dat
+        throw new Error(`Invalid response fetching file metadata for doc ID "${docId}".`);
       } catch (error) {
-        logger.log(
-          1,
-          `DocumentWebServiceHelper.getDocumentFilesMetadata: Error fetching file metadata for doc ID "${docId}"`,
-          error
-        );
         throw error;
       }
     },
     reserveDocument: async function (docId) {
-      logger.log(-1, `DocumentWebServiceHelper.reserveDocument: Reserving document ID "${docId}"`);
       const options = {
         url: `/resources/v1/modeler/documents/${docId}/reserve`,
         method: "PUT",
@@ -430,26 +304,13 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
         const response = await Connector3DSpace.callService(options, true);
         // Úspěšná odpověď na reserve může být 200 OK s tělem nebo 204 No Content.
         // Zde předpokládáme, že úspěch znamená, že operace proběhla.
-        // Můžete přidat kontrolu response.dataResp, pokud API vrací specifická data.
-        logger.log(
-          -1,
-          `DocumentWebServiceHelper.reserveDocument: Document ID "${docId}" reserved successfully. Response: ${JSON.stringify(
-            response,
-            null,
-            2
-          )}`
-        );
         return response.dataResp; // Nebo nějaký indikátor úspěchu
       } catch (error) {
-        logger.log(1, `DocumentWebServiceHelper.reserveDocument: Error reserving document ID "${docId}"`, error);
-        // Zde by bylo dobré rozlišit typy chyb (např. již zamčeno jiným uživatelem, dokument neexistuje)
-        // na základě chybového kódu nebo zprávy z `error.responseJSON` nebo `error.message`.
         throw error;
       }
     },
 
     unreserveDocument: async function (docId) {
-      logger.log(-1, `DocumentWebServiceHelper.unreserveDocument: Unreserving document ID "${docId}"`);
       const options = {
         url: `/resources/v1/modeler/documents/${docId}/unreserve`,
         method: "PUT",
@@ -459,34 +320,14 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
 
       try {
         const response = await Connector3DSpace.callService(options, true);
-        logger.log(
-          -1,
-          `DocumentWebServiceHelper.unreserveDocument: Document ID "${docId}" unreserved successfully. Response: ${JSON.stringify(
-            response,
-            null,
-            2
-          )}`
-        );
         return response.dataResp;
       } catch (error) {
-        logger.log(1, `DocumentWebServiceHelper.unreserveDocument: Error unreserving document ID "${docId}"`, error);
-        // Podobně jako u reserve, zde by bylo dobré rozlišit typy chyb.
-        // Např.:
-        // if (error.responseJSON && error.responseJSON.error === "DOCUMENT_NOT_RESERVED_BY_YOU") {
-        //   throw new Error(`Document ${docId} is not reserved by you or cannot be unreserved.`);
-        // } else if (error.status === 404) {
-        //   throw new Error(`Document ${docId} not found.`);
-        // }
         throw error;
       }
     },
 
     // Nová pomocná metoda: Smazání souboru podle ID
     _deleteFileById: async function (docId, fileId) {
-      logger.log(
-        -1,
-        `DocumentWebServiceHelper._deleteFileById: Deleting file ID "${fileId}" from document ID "${docId}"`
-      );
       const options = {
         url: `/resources/v1/modeler/documents/${docId}/files/${fileId}`,
         method: "DELETE",
@@ -495,20 +336,20 @@ define("DS/DYTUtils/DocumentWebServiceHelper", ["DS/DYTUtils/Connector3DSpace", 
       try {
         // DELETE požadavky obvykle vyžadují CSRF token
         const response = await Connector3DSpace.callService(options, true);
-        logger.log(
-          -1,
-          `DocumentWebServiceHelper._deleteFileById: File ID "${fileId}" deleted successfully. Response: ${JSON.stringify(
-            response,
-            null,
-            2
-          )}`
-        );
         return response.dataResp; // Nebo jiný indikátor úspěchu
       } catch (error) {
-        logger.log(1, `DocumentWebServiceHelper._deleteFileById: Error deleting file ID "${fileId}"`, error);
         throw error;
       }
     },
   };
-  return module;
+
+  // Vytvoříme nový objekt, který bude obsahovat obalené metody
+  const wrappedModule = {};
+  for (const key in originalMethods) {
+    if (Object.prototype.hasOwnProperty.call(originalMethods, key)) {
+      wrappedModule[key] = wrapMethod(originalMethods[key], key, moduleName);
+    }
+  }
+
+  return wrappedModule; // Vracíme modul s obalenými metodami
 });
