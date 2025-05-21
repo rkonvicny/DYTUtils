@@ -2,7 +2,7 @@
 !theme vibrant
 title Class Diagram: DocumentWebServiceHelper
 
-package "DS.DYTUtils" {
+' package "DYTUtils" {
 
     class DocumentWebServiceHelper {
         + getDocumentDetailsById(docId: string): Promise<Object>
@@ -33,7 +33,7 @@ package "DS.DYTUtils" {
         .. more methods ..
     }
 
-}
+' }
 
 DYTJSONManager *-- DocumentWebServiceHelper : uses
 DocumentWebServiceHelper *-- Connector3DSpace : uses
@@ -89,7 +89,8 @@ end note
 note right of DYTJSONManager::loadJsonFromDocument
   Loads and parses JSON data from a specified file
   within a document found by its title.
-  Uses DocumentWebServiceHelper.searchDocumentByTitle and DocumentWebServiceHelper.downloadFileContentByName.
+  Uses DocumentWebServiceHelper.searchDocumentByTitle
+  and DocumentWebServiceHelper.downloadFileContentByName.
 end note
 
 @enduml

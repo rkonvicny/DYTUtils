@@ -17,7 +17,7 @@ package "DocumentWebServiceHelper Internal" {
     component _downloadFileFromFCS <<helper>>
     component _blobToString <<helper>>
     component _deleteFileById <<helper>>
-}
+} 
 
 package "DYTJSONManager Internal" {
     component saveJsonToDocument
@@ -79,6 +79,9 @@ _deleteFileById --> Connector3DSpace_callService : uses
 _downloadFileFromFCS --> Connector3DSpace_proxyCall : uses
 
 ' --- Poznámky ---
-note "Všechny metody také volají `logger.log()`, což je zde pro přehlednost vynecháno." as LoggingNote
+note as LoggingNote
+    Všechny metody také volají `logger.log()`, 
+    což je zde pro přehlednost vynecháno.
+endnote
 
 @enduml
