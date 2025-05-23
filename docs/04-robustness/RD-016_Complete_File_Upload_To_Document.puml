@@ -1,0 +1,47 @@
+@startuml RD-016_Complete_File_Upload_To_Document
+!theme vibrant
+left to right direction
+
+actor "Volající Služba (např. JsonManager)" as CallingService
+
+package "DocumentHelper" as DocumentHelperModule {
+    control "uploadFileToDocument" as completeUploadCtrl
+    control "getUploadTicketForFile" as getUploadTicketCtrl <<UC-005>>
+    control "uploadFileContentToFCS" as uploadToFCSCtrl <<UC-011>>
+    control "attachFileToDocument" as attachFileCtrl <<UC-017>>
+}
+
+' Entities are commented out
+' entity "InputParams (data)" as InputParamsData ' docId, fileName, fileContent
+' entity "UploadTicketInfo (data)" as UploadTicketInfoData ' fcsUploadUrl, fileReceipt
+' entity "FCSUploadConfirmation (data)" as FCSUploadConfirmationData
+' entity "FileInfo (result)" as FileInfoResult
+
+' UC-016 Krok 1: Volající služba volá API
+CallingService -> completeUploadCtrl : 1. uploadFileToDocument(docId, fileName, fileContent)
+
+' UC-016 Krok 2: Invoke UC-011 Získání Upload Ticketu
+completeUploadCtrl -> getUploadTicketCtrl : 2. (fileName)
+getUploadTicketCtrl ..> completeUploadCtrl : 2.1 (UploadTicketInfoData)
+getUploadTicketCtrl .[#red].> completeUploadCtrl : 2.1a <color:red>failure (get ticket error - UC016:7.A)</color>
+
+' UC-016 Krok 3: Invoke UC-012 Nahrání Souboru na FCS
+' This happens if step 2.1 was successful
+completeUploadCtrl -> uploadToFCSCtrl : 3. (UploadTicketInfoData.fcsUploadUrl, fileContent)
+uploadToFCSCtrl ..> completeUploadCtrl : 3.1 (FCSUploadConfirmationData) ' Or just success signal
+uploadToFCSCtrl .[#red].> completeUploadCtrl : 3.1a <color:red>failure (FCS upload error - UC016:7.B)</color>
+
+' UC-016 Krok 4: Invoke UC-008 Připojení Souboru k Dokumentu
+' This happens if step 3.1 was successful
+completeUploadCtrl -> attachFileCtrl : 4. (docId, fileName, UploadTicketInfoData.fileReceipt)
+attachFileCtrl ..> completeUploadCtrl : 4.1 (FileInfoResult)
+attachFileCtrl .[#red].> completeUploadCtrl : 4.1a <color:red>failure (attach error - UC016:7.C)</color>
+
+' UC-016 Krok 5: Vrácení odpovědi
+' This happens if step 4.1 was successful
+completeUploadCtrl ..> CallingService : 5. (FileInfoResult)
+
+' Path for error propagation
+completeUploadCtrl .[#red].> CallingService : 5.a <color:red>failure</color> ' Propagate error from any previous critical step
+
+@enduml

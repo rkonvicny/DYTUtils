@@ -1,0 +1,78 @@
+@startuml SD-009_Delete_File_From_Document
+!theme vibrant
+title UC-009: Smazání Souboru z Dokumentu - Sekvenční Diagram
+
+participant "callingSvc:CallingService\n(např. UC-002)" as CallingService
+participant "docHelper:DocumentHelper" as DocumentHelper
+participant "connector:Connector3DSpace" as Connector
+
+autonumber "<b>[0]"
+
+CallingService -> DocumentHelper : deleteFileFromDocument(docId, fileName)
+activate DocumentHelper
+
+DocumentHelper -> DocumentHelper : 2. getDocumentFilesMetadata(docId)\n<size:10><< UC-013 >></size>
+activate DocumentHelper
+' Předpokládáme, že UC-013 interně volá Connector, zde zjednodušeno
+DocumentHelper --> DocumentHelper : FileInfoList
+deactivate DocumentHelper
+
+alt 7.A Chyba při získávání metadat
+    DocumentHelper --> CallingService : failure (get metadata error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 3. Prohledání FileInfoList, získání fileId pro fileName
+
+alt 7.B Soubor nenalezen v metadatech
+    DocumentHelper --> CallingService : failure (file not found in metadata)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 4. Sestavení požadavku (options)\n<size:10>(endpoint: /documents/{docId}/files/{fileId}, method: DELETE)</size>
+
+DocumentHelper -> Connector : 5. callService(options)\n<size:10>(method: DELETE, csrf: true)</size>
+activate Connector
+Connector --> DocumentHelper : 5.1 deletePlatformResponse
+deactivate Connector
+
+alt 7.C Chyba platformy / komunikace při mazání
+    DocumentHelper --> CallingService : failure (delete platform/communication error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 6. Zpracování odpovědi platformy\n<size:10>(kontrola úspěšnosti smazání)</size>
+
+alt 7.D Dokument/soubor neexistuje / Nelze smazat
+    DocumentHelper --> CallingService : failure (doc/file not exist or cannot be deleted)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper --> CallingService : 7. success (file deleted)
+deactivate DocumentHelper
+
+== Poznámky ==
+note over DocumentHelper, Connector
+  Tento diagram zobrazuje interakci na úrovni DocumentHelpera.
+  Volání UC-013 (getDocumentFilesMetadata) je zde zobrazeno jako
+  interní volání v rámci DocumentHelpera; jeho detaily
+  budou v SD-013.
+  Endpoint pro smazání souboru je:
+  DELETE /resources/v1/modeler/documents/{docId}/files/{fileId}
+end note
+
+note right of CallingService
+  Datum vytvoření: 2025-05-14
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

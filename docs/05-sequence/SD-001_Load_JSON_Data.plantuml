@@ -1,0 +1,72 @@
+@startuml SD-001_Load_JSON_Data
+!theme vibrant
+title UC-001: Načtení JSON dat z dokumentu - Sekvenční Diagram
+
+actor "Widget" as Widget
+participant "jsonMgr:JsonManager" as JsonManager
+participant "docHelper:DocumentHelper" as DocumentHelper
+
+autonumber "<b>[0]"
+
+Widget -> JsonManager : loadJsonFromDocument(documentTitle, fileName)
+activate JsonManager
+
+JsonManager -> JsonManager : validateParams(documentTitle, fileName)
+alt invalid parameters
+    JsonManager --> Widget : failure (invalid params error - UC001:7.A)
+    destroy JsonManager
+end
+
+JsonManager -> DocumentHelper : searchDocumentByTitle(documentTitle)\n<size:10><< UC-003 >></size>
+activate DocumentHelper
+DocumentHelper --> JsonManager : searchResult
+deactivate DocumentHelper
+
+alt search error or document not found/multiple
+    JsonManager --> Widget : failure (search error or doc not found/multiple - UC001:7.B, 7.C)
+    destroy JsonManager
+end
+
+JsonManager -> JsonManager : validateSearchResult(searchResult)\n<size:10>(extracts docId)</size>
+' Assume validation passes for main flow
+
+JsonManager -> DocumentHelper : downloadFileFromDocument(docId, fileName)\n<size:10><< UC-015 >></size>
+activate DocumentHelper
+DocumentHelper --> JsonManager : FileContentAndInfo (fileContent, fileInfo)
+deactivate DocumentHelper
+
+alt download error
+    JsonManager --> Widget : failure (download error - UC001:7.D)
+    destroy JsonManager
+end
+
+JsonManager -> JsonManager : validateDownloadResult(fileContent, fileInfo)
+alt invalid download result
+    JsonManager --> Widget : failure (invalid download result - UC001:7.E)
+    destroy JsonManager
+end
+
+JsonManager -> JsonManager : deserializeData(fileContent)
+alt deserialization error
+    JsonManager --> Widget : failure (deserialization error - UC001:7.F)
+    destroy JsonManager
+end
+
+JsonManager --> Widget : jsonDataObject
+deactivate JsonManager
+
+== Poznámky ==
+note over JsonManager, DocumentHelper
+  Tento diagram zobrazuje orchestraci na úrovni JsonManageru.
+  Interní kroky UC-003 a UC-015 (volané v DocumentHelper)
+  jsou detailněji popsány v jejich vlastních sekvenčních diagramech
+  (SD-003, SD-015).
+end note
+
+note right of Widget
+  Datum vytvoření: 2025-05-13
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

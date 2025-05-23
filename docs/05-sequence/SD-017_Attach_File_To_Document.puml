@@ -1,0 +1,62 @@
+@startuml SD-017_Attach_File_To_Document
+!theme vibrant
+title UC-017: Připojení Souboru k Dokumentu - Sekvenční Diagram
+
+participant "callingSvc:CallingService\n(např. UC-016)" as CallingService
+participant "docHelper:DocumentHelper" as DocumentHelper
+participant "connector:Connector3DSpace" as Connector
+
+autonumber "<b>[0]"
+
+CallingService -> DocumentHelper : attachFileToDocument(docId, fileName, fileReceipt, contentType)
+activate DocumentHelper
+
+DocumentHelper -> DocumentHelper : 2. Sestavení payloadu pro připojení souboru\n<size:10>{"fileName": "string", "receipt": "string", "mime": "string", ...}</size>
+
+DocumentHelper -> DocumentHelper : 3. Sestavení požadavku (options)\n<size:10>(endpoint: /documents/{docId}/files, method: POST)</size>
+
+DocumentHelper -> Connector : 4. callService(options, payload)\n<size:10>(method: POST, csrf: true)</size>
+activate Connector
+Connector --> DocumentHelper : 4.1 attachPlatformResponse
+deactivate Connector
+
+alt 7.A Chyba platformy / komunikace
+    DocumentHelper --> CallingService : failure (platform/communication error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 5. Zpracování odpovědi platformy\n<size:10>(extrakce FileInfo)</size>
+
+alt 7.B Dokument neexistuje / Neplatný receipt / Chyba při připojování
+    DocumentHelper --> CallingService : failure (doc not found, invalid receipt, or attach error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper --> CallingService : 6. success (FileInfo)
+deactivate DocumentHelper
+
+== Poznámky ==
+note over DocumentHelper, Connector
+  Tento diagram zobrazuje interakci na úrovni DocumentHelpera
+  při volání služby pro připojení souboru k dokumentu.
+  Kroky 2, 3 a 5 jsou interní operace DocumentHelpera.
+  Endpoint pro připojení souboru je:
+  POST /resources/v1/modeler/documents/{docId}/files
+  (v diagramu zjednodušeno na /documents/{docId}/files
+  pro lepší čitelnost, přesný endpoint je v UC-017.md)
+
+  Payload obsahuje `fileName`, `receipt` (získaný z FCS po nahrání obsahu),
+  `mime` (contentType) a případně další metadata.
+end note
+
+note right of CallingService
+  Datum vytvoření: 2025-05-14
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

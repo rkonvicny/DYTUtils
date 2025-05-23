@@ -1,0 +1,59 @@
+@startuml SD-005_Get_Upload_Ticket_For_File
+!theme vibrant
+title UC-005: Získání Upload Ticketu pro Soubor - Sekvenční Diagram
+
+participant "callingSvc:CallingService\n(např. UC-016)" as CallingService
+participant "docHelper:DocumentHelper" as DocumentHelper
+participant "connector:Connector3DSpace" as Connector
+
+autonumber "<b>[0]"
+
+CallingService -> DocumentHelper : getUploadTicketForFile(fileName)
+activate DocumentHelper
+
+DocumentHelper -> DocumentHelper : 2. Sestavení payloadu\n<size:10>{"fileName": "string"}</size>
+
+DocumentHelper -> DocumentHelper : 3. Sestavení požadavku (options)\n<size:10>(endpoint: /documents/files/GetTicketForUpload, method: POST)</size>
+
+DocumentHelper -> Connector : 4. callService(options, payload)\n<size:10>(method: POST, csrf: true)</size>
+activate Connector
+Connector --> DocumentHelper : 4.1 ticketPlatformResponse
+deactivate Connector
+
+alt 7.A Chyba platformy / komunikace
+    DocumentHelper --> CallingService : failure (platform/communication error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 5. Zpracování ticketResponse\n<size:10>(extrakce fcsUploadUrl, fileReceipt)</size>
+
+alt 7.B Ticket nelze získat / Neplatná odpověď
+    DocumentHelper --> CallingService : failure (invalid ticket or response)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper --> CallingService : 6. UploadTicketInfo (fcsUploadUrl, fileReceipt)
+deactivate DocumentHelper
+
+== Poznámky ==
+note over DocumentHelper, Connector
+  Tento diagram zobrazuje interakci na úrovni DocumentHelpera
+  při volání služby pro získání Upload Ticketu.
+  Kroky 2, 3 a 5 jsou interní operace DocumentHelpera.
+  Endpoint pro získání Upload Ticketu je:
+  POST /resources/v1/modeler/documents/files/GetTicketForUpload
+  (v diagramu zjednodušeno na /documents/files/GetTicketForUpload
+  pro lepší čitelnost, přesný endpoint je v UC-005.md)
+end note
+
+note right of CallingService
+  Datum vytvoření: 2025-05-14
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

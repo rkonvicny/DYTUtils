@@ -1,0 +1,76 @@
+@startuml SD-004_Get_Download_Ticket_For_File
+!theme vibrant
+title UC-004: Získání Download Ticketu pro Soubor - Sekvenční Diagram
+
+participant "callingSvc:CallingService\n(např. UC-015)" as CallingService
+participant "docHelper:DocumentHelper" as DocumentHelper
+participant "connector:Connector3DSpace" as Connector
+
+autonumber "<b>[0]"
+
+CallingService -> DocumentHelper : getDownloadTicketForFile(docId, fileName)
+activate DocumentHelper
+
+DocumentHelper -> DocumentHelper : 2. getDocumentFilesMetadata(docId)\n<size:10><< UC-013 >></size>
+activate DocumentHelper
+' Předpokládáme, že UC-013 interně volá Connector, zde zjednodušeno
+DocumentHelper --> DocumentHelper : FileInfoList
+deactivate DocumentHelper
+
+alt 7.A Chyba při získávání metadat
+    DocumentHelper --> CallingService : failure (get metadata error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 3. Prohledání FileInfoList, získání fileId
+
+alt 7.B Soubor nenalezen
+    DocumentHelper --> CallingService : failure (file not found)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 4. Sestavení požadavku na Download Ticket\n<size:10>(endpoint: /documents/{docId}/files/{fileId}/DownloadTicket)</size>
+
+DocumentHelper -> Connector : 5. callService(options)\n<size:10>(method: PUT, csrf: true)</size>
+activate Connector
+Connector --> DocumentHelper : 5.1 ticketPlatformResponse
+deactivate Connector
+
+alt 7.C Chyba platformy / komunikace při získávání ticketu
+    DocumentHelper --> CallingService : failure (get ticket platform/communication error)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper -> DocumentHelper : 6. Zpracování ticketResponse\n<size:10>(extrakce fcsUrl, atd.)</size>
+
+alt 7.D Dokument/soubor neexistuje / Ticket neplatný
+    DocumentHelper --> CallingService : failure (doc/file not exist or invalid ticket)
+    deactivate DocumentHelper
+    destroy DocumentHelper
+    return
+end
+
+DocumentHelper --> CallingService : 7. DownloadTicketInfo (fcsUrl, ...)
+deactivate DocumentHelper
+
+== Poznámky ==
+note over DocumentHelper, Connector
+  Tento diagram zobrazuje interakci na úrovni DocumentHelpera.
+  Volání UC-013 (getDocumentFilesMetadata) je zde zobrazeno jako
+  interní volání v rámci DocumentHelpera; jeho detaily
+  budou v SD-013.
+end note
+
+note right of CallingService
+  Datum vytvoření: 2025-05-13
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

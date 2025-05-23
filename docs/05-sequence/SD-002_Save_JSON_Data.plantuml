@@ -1,0 +1,117 @@
+@startuml SD-002_Save_JSON_Data
+!theme vibrant
+title UC-002: Uložení JSON dat do dokumentu - Sekvenční Diagram
+
+actor "Widget" as Widget
+participant "jsonMgr:JsonManager" as JsonManager
+participant "docHelper:DocumentHelper" as DocumentHelper
+
+autonumber "<b>[0]"
+
+Widget -> JsonManager : saveJsonToDocument(documentTitle, fileName, jsonData)
+activate JsonManager
+
+JsonManager -> JsonManager : 2. validateInputParams(documentTitle, fileName, jsonData)
+alt 7.A invalid parameters
+    JsonManager --> Widget : failure (invalid params error)
+    deactivate JsonManager
+    destroy JsonManager
+    return
+end
+
+JsonManager -> JsonManager : 3. serializeJsonData(jsonData)
+alt 7.B serialization error
+    JsonManager --> Widget : failure (serialization error)
+    deactivate JsonManager
+    destroy JsonManager
+    return
+end
+
+JsonManager -> DocumentHelper : 4. ensureDocumentExists(documentTitle)\n<size:10><< UC-010 >></size>
+activate DocumentHelper
+DocumentHelper --> JsonManager : docId, documentInfo
+deactivate DocumentHelper
+alt 7.C ensure doc error
+    JsonManager --> Widget : failure (ensure doc error)
+    deactivate JsonManager
+    destroy JsonManager
+    return
+end
+
+JsonManager -> DocumentHelper : 5. reserveDocument(docId)\n<size:10><< UC-007 >></size>
+activate DocumentHelper
+DocumentHelper --> JsonManager : lock confirmation
+deactivate DocumentHelper
+alt 7.D lock error
+    JsonManager --> Widget : failure (lock error)
+    deactivate JsonManager
+    destroy JsonManager
+    return
+end
+
+' --- Critical section: Document is locked ---
+' Need to ensure unlock happens if any step here fails
+
+group Critical Section (Document Locked)
+    JsonManager -> DocumentHelper : 6. deleteFileFromDocument(docId, fileName)\n<size:10><< UC-009 >></size>
+    activate DocumentHelper
+    DocumentHelper --> JsonManager : delete confirmation
+    deactivate DocumentHelper
+    alt 7.E delete error (critical)
+        JsonManager -> DocumentHelper : 8. unreserveDocument(docId)\n<size:10><< UC-008 >></size>
+        activate DocumentHelper
+        DocumentHelper --> JsonManager : unlock confirmation
+        deactivate DocumentHelper
+        JsonManager --> Widget : failure (delete error)
+        deactivate JsonManager
+        destroy JsonManager
+        return
+    end
+    ' Note: 7.E also covers non-critical "file not found" which proceeds
+
+    JsonManager -> DocumentHelper : 7. uploadFileToDocument(docId, fileName, fileContent)\n<size:10><< UC-016 >></size>
+    activate DocumentHelper
+    DocumentHelper --> JsonManager : fileInfo
+    deactivate DocumentHelper
+    alt 7.F upload error
+        JsonManager -> DocumentHelper : 8. unreserveDocument(docId)\n<size:10><< UC-008 >></size>
+        activate DocumentHelper
+        DocumentHelper --> JsonManager : unlock confirmation
+        deactivate DocumentHelper
+        JsonManager --> Widget : failure (upload error)
+        deactivate JsonManager
+        destroy JsonManager
+        return
+    end
+
+    JsonManager -> DocumentHelper : 8. unreserveDocument(docId)\n<size:10><< UC-008 >></size>
+    activate DocumentHelper
+    DocumentHelper --> JsonManager : unlock confirmation
+    deactivate DocumentHelper
+    opt 7.G unlock error
+        JsonManager -> JsonManager : Log unlock error
+    end
+
+    JsonManager --> Widget : 9. success (fileInfo)
+    deactivate JsonManager
+    destroy JsonManager
+end
+
+== Poznámky ==
+note over JsonManager, DocumentHelper
+  Tento diagram zobrazuje orchestraci na úrovni JsonManageru.
+  Interní kroky UC-010, UC-007, UC-009, UC-016, UC-008
+  (volané v DocumentHelper) jsou detailněji popsány
+  v jejich vlastních sekvenčních diagramech.
+  Kroky 2 & 3 v UC-002 jsou interní operace JsonManageru.
+  Krok 8 (odemčení) by měl být proveden i při chybě v krocích 6 nebo 7,
+  pokud bylo zamčení v kroku 5 úspěšné.
+end note
+
+note right of Widget
+  Datum vytvoření: 2025-05-13
+  Autor: KONR
+  Verze: 0.1
+end note
+
+@enduml

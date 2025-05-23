@@ -1,0 +1,154 @@
+@startmindmap
+!theme vibrant
+title 3DEXPERIENCE Widget Development Knowledge Map
+
+* **Widget Core & Lifecycle**
+** HTML Structure
+***_ `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" ...>`
+***_ `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:widget="http://www.netvibes.com/ns/">`
+***_ `<head>`
+****_ `<title>`: Initial widget title (can be overridden)
+****_ `<meta>`: Keywords, description
+****_ `<widget:preferences>`: Static preference declarations
+***_ `<body>`: Typically empty, content managed by JS
+** Global `widget` Object
+***_ Instance of `Widget` class
+***_ Core Properties
+****_ `widget.body`: DOM element for widget content
+****_ `widget.id`: Unique widget instance ID
+****_ `widget.uwaUrl`: Widget's base URL
+****_ `widget.lang`: Current language (e.g., "en")
+****_ `widget.getValue("x3dPlatformId")`: Current tenant/platform ID
+***_ Core Methods
+****_ `widget.addEvent(eventName, callback)`
+****_ `widget.dispatchEvent(eventName, data)`
+****_ `widget.setTitle(newTitle)`
+****_ `widget.getValue(preferenceName)`
+****_ `widget.setValue(preferenceName, value)`
+** Lifecycle Events (Common)
+***_ `onLoad`: Widget is loaded and ready
+***_ `onRefresh`: Widget needs to refresh its content (e.g., after preference change)
+***_ `onResize`: Widget container size changed
+***_ `onViewChange`: Widget view state changed (maximized, restored)
+***_ `onEdit` / `onEndEdit`: Preference dialog opened/closed
+***_ `onReset`: Widget reset to default state
+***_ `onUnload`: Widget is being unloaded (use with caution)
+** DOM Manipulation
+***_ `widget.body.innerHTML = "..."`
+***_ Standard DOM APIs (`querySelector`, etc.)
+
+* **Modularity (AMD - Asynchronous Module Definition)**
+** `define()` function
+***_ `define('DS/MyCompany/MyModule', ['dependency1'], function(dep1) { ... return exports; });`
+***_ Module Name: `PartnerPrefix/WebAppName/Path/FileName` (e.g., `DS/DYTUtils/Connector3DSpace`)
+***_ Dependencies array
+***_ Factory function
+***_ Exporting API: `return myModuleAPI;`
+** `require()` function
+***_ `require(['DS/Module1', 'DS/Module2'], function(mod1, mod2) { ... });`
+***_ Asynchronously loads modules
+** Best Practices
+***_ `'use strict';`
+***_ `/* global widget, require, define */` for linters
+***_ One AMD module per JS file
+
+* **User Preferences**
+** Static Declaration (in `<head>`)
+***_ `<widget:preferences>`
+****_ `<widget:preference name="prefName" type="text|list|boolean|range|hidden" label="NLSKey" defaultValue="..." onchange="eventName">`
+*****_ `list` type options: `<widget:option value="val" label="NLSKeyForOption"/>`
+** Dynamic Management (JavaScript)
+***_ `widget.addPreference(preferenceDefinitionObject)`
+****_ `preferenceDefinitionObject` mirrors XML attributes
+***_ `widget.setValue(name, value)`
+***_ `widget.getValue(name)`
+***_ `widget.removePreference(name)`
+***_ `widget.getPreference(name)` / `widget.getPreferences()`
+***_ `widget.setPreferenceVisible(name, isVisible)`
+***_ `onchange` event for specific preference
+***_ `widget.dispatchEvent('onEdit')` to refresh preference UI
+** NLS for Labels
+***_ `label` attribute uses NLS keys
+
+* **Internationalization (NLS)**
+** `i18n!` AMD Plugin
+***_ `require(['i18n!DS/MyModule/assets/Translations'], function(nls) { ... });`
+** Translation Files
+***_ JSON format (e.g., `Translations_en.json`, `Translations_fr.json`)
+***_ Key-value pairs: `"myKey": "My Translated String"`
+***_ Placeholders: `"greeting": "Hello {userName}!"`
+** Using Translations
+***_ `nls.get("myKey")`
+***_ `nls.get("greeting", { userName: "John" })`
+** Application
+***_ Widget body content
+***_ Widget title (dynamic part)
+***_ Preference labels & option labels
+
+* **Data Access & Web Services**
+** Core Modules
+***_ `DS/WAFData/WAFData`
+****_ `WAFData.authenticatedRequest(url, options)`: For 3DEXPERIENCE platform services
+****_ `WAFData.proxifiedRequest(url, options)`: For external services or FCS
+***_ `DS/i3DXCompassServices/i3DXCompassServices`
+****_ `getServiceUrl({ serviceName: '3DSpace' | '3DSwym' | '3DPassport', platformId: 'xxx', onComplete: ..., onFailure: ... })`
+** Authentication & Security
+***_ 3DPassport & CAS Protocol (SSO/SLO)
+***_ CSRF Tokens
+****_ 3DSpace: `ENO_CSRF_TOKEN` (Header) - Get via `/resources/v1/application/CSRF`
+****_ 3DSwym: `X-DS-SWYM-CSRFTOKEN` (Header) - Get via `/api/index/tk` (version API)
+***_ Security Context (for 3DSpace)
+****_ Header: `SecurityContext: Role.Org.CollabSpace` (URL Encoded)
+****_ Obtained from `widget.getValue('scContext')` (user preference)
+** Tenant Handling (Multi-Platform)
+***_ `widget.getValue('x3dPlatformId')`
+***_ 3DSpace URL: Append `?tenant=<platformId>` or `&tenant=<platformId>`
+****_ `i3DXCompassServices.getServiceUrl` returns lowercase tenant in URL, so explicit tenant param is crucial for cloud.
+** HTTP Requests
+***_ Methods: GET, POST, PUT, DELETE, PATCH
+***_ Headers: `Accept: 'application/json'`, `Content-Type: 'application/json'` (if body)
+***_ Data: `JSON.stringify(payload)` for POST/PUT with JSON
+** HTTP Responses
+***_ Status Codes (2xx, 4xx, 5xx)
+***_ JSON body (parse if string)
+***_ Error handling: `onFailure` callbacks, check response status
+** Binary Data (Images/Media)
+***_ Display: `<img src="directServiceURL">` (3DSwym: no CSRF needed for direct image URL)
+***_ Download: Get ticket (e.g., 3DSpace DownloadTicket, 3DSwym `/api/media/get`), then use ticket URL.
+***_ Upload: Get ticket (e.g., 3DSpace UploadTicket), upload to FCS via `proxifiedRequest`, then check-in/attach file.
+
+* **Platform Integration & Communication**
+** Inter-Widget Communication
+***_ `widget.publish(topic, data)`
+***_ `widget.subscribe(topic, callback)`
+** Drag & Drop
+***_ `DS/DataDragAndDrop/DataDragAndDrop`
+****_ `DataDragAndDrop.draggable(element, { data: "stringified_data", start: ..., stop: ... })`
+****_ `DataDragAndDrop.droppable(element, { drop: function(data) {...}, enter: ..., leave: ..., over: ... })`
+***_ "3DXContent" Protocol (JSON structure for DS objects)
+** 6WTagger Integration
+***_ `DS/TagNavigatorProxy/TagNavigatorProxy`
+***_ Filtering based on tags
+** Launching Applications
+***_ `DS/ApplicationFrame/ApplicationFrame.open({ appID: 'X3DPLAW_AP', ... })`
+
+* **Development & Deployment**
+** Naming Conventions
+***_ JavaScript: CamelCase (variables, functions), PascalCase (constructors), Hungarian notation (optional)
+***_ AMD Modules: `DS/Partner/WebApp/Path/ModuleFile` (influenced by C++ naming rules like prefixes)
+** Authorized APIs
+***_ Use only documented APIs (Encyclopedia)
+***_ Understand deprecation lifecycle (2 releases)
+** Troubleshooting
+***_ Browser Developer Console (network requests, JS errors)
+***_ Common issues: 504 Gateway (URL accessibility), "Loading..." (JS file load errors)
+** Widget Hosting & Installation
+***_ Copy `src` folder of `.mweb` module, rename to module name (e.g., `MyWidgetModule`)
+***_ Server accessible by 3DDashboard
+***_ Launch via Compass (Third Party App) or "Run your App"
+****_ URL: `$ServiceURL/WidgetModuleName/WidgetFile.html`
+** Build & SCM
+***_ `.mweb` modules
+***_ `Imakefile.mk` (for dependencies like `LINK_WITH`)
+
+@endmindmap

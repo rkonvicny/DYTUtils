@@ -1,0 +1,59 @@
+@startuml RD-004_Get_Download_Ticket_For_File
+!theme vibrant
+left to right direction
+
+actor "Volající Služba (např. JsonManager)" as CallingService
+
+package "DocumentHelper" as DocumentHelperModule {
+    control "getDownloadTicketForFile" as getDownloadTicketCtrl
+    control "getDocumentFilesMetadata" as getFilesMetadataCtrl <<UC-013>>
+    control "findFileIdByName" as findFileIdByNameCtrl
+    control "createRequestQuery" as createRequestQueryCtrl
+    control "processTicketResponse" as processTicketCtrl
+}
+
+package "Connector3DSpace" {
+    boundary "callService API" as ConnectorApi
+}
+
+' Entities are commented out
+' entity "InputParams (data)" as InputParamsData ' docId, fileName
+' entity "FileInfoList (data)" as FileInfoListData
+' entity "FileId (data)" as FileIdData
+' entity "TicketRequestOptions (data)" as TicketRequestOptionsData
+' entity "TicketResponse (data)" as TicketResponseData
+' entity "DownloadTicketInfo (result)" as DownloadTicketInfoResult ' fcsUrl, etc.
+
+' UC-004 Krok 1: Volající služba volá API
+CallingService -> getDownloadTicketCtrl : 1. getDownloadTicketForFile(docId, fileName)
+
+' UC-004 Krok 2: Invoke UC-013 Získání metadat souborů
+getDownloadTicketCtrl -> getFilesMetadataCtrl : 2. (docId)
+getFilesMetadataCtrl ..> getDownloadTicketCtrl : 2.1 (FileInfoListData)
+getFilesMetadataCtrl .[#red].> getDownloadTicketCtrl : 2.1a <color:red>failure (get metadata error - UC004:7.A)</color>
+
+' UC-004 Krok 3: Najdi fileId podle fileName
+getDownloadTicketCtrl -> findFileIdByNameCtrl : 3. (FileInfoListData, fileName)
+findFileIdByNameCtrl ..> getDownloadTicketCtrl : 3.1 success (FileIdData)
+findFileIdByNameCtrl .[#red].> getDownloadTicketCtrl : 3.1a <color:red>failure (file not found - UC004:7.B)</color>
+
+' UC-004 Krok 4: Sestavení požadavku na Download Ticket
+' This happens if fileId was found (step 3.1)
+getDownloadTicketCtrl -> createRequestQueryCtrl : 4. (docId, FileIdData, type="GetDownloadTicket")
+createRequestQueryCtrl ..> getDownloadTicketCtrl : 4.1 (TicketRequestOptionsData)
+
+' UC-004 Krok 5: Odeslání požadavku na Download Ticket a získání odpovědi
+getDownloadTicketCtrl -> ConnectorApi : 5. callService(TicketRequestOptionsData, csrf=true) ' CSRF true for PUT
+ConnectorApi ..> getDownloadTicketCtrl : 5.1 (TicketResponseData)
+ConnectorApi .[#red].> getDownloadTicketCtrl : 5.1a <color:red>failure (get ticket error - UC004:7.C)</color>
+
+' UC-004 Krok 6: Zpracování TicketResponse
+getDownloadTicketCtrl -> processTicketCtrl : 6. (TicketResponseData)
+processTicketCtrl ..> getDownloadTicketCtrl : 6.1 success (DownloadTicketInfoResult)
+processTicketCtrl .[#red].> getDownloadTicketCtrl : 6.1a <color:red>failure (invalid ticket - UC004:7.D)</color>
+
+' UC-004 Krok 7: Vrácení odpovědi
+getDownloadTicketCtrl ..> CallingService : 7. (DownloadTicketInfoResult)
+getDownloadTicketCtrl .[#red].> CallingService : 7.a <color:red>failure</color> ' Propagate error from any previous critical step
+
+@enduml
